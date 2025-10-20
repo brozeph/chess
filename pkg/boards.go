@@ -155,7 +155,7 @@ func (b *Board) indexOf(sq *Square) int {
 	return (sq.Rank-1)*8 + fileIdx
 }
 
-func (b *Board) getSquare(file rune, rank int) *Square {
+func (b *Board) GetSquare(file rune, rank int) *Square {
 	if rank < 1 || rank > 8 || file < 'a' || file > 'h' {
 		return nil
 	}
@@ -172,7 +172,7 @@ func (b *Board) getSquareByName(name string) *Square {
 	}
 	file := rune(name[0])
 	rank := int(name[1] - '0')
-	return b.getSquare(file, rank)
+	return b.GetSquare(file, rank)
 }
 
 func (b *Board) getNeighborSquare(sq *Square, n neighbor) *Square {
@@ -182,36 +182,36 @@ func (b *Board) getNeighborSquare(sq *Square, n neighbor) *Square {
 
 	switch sq.File {
 	case 'a':
-		if n == neighborAboveLeft ||
-			n == neighborBelowLeft ||
-			n == neighborLeft {
+		if n == NeighborAboveLeft ||
+			n == NeighborBelowLeft ||
+			n == NeighborLeft {
 			return nil
 		}
 	case 'b':
-		if n == neighborKnightLeftAbove ||
-			n == neighborKnightLeftBelow {
+		if n == NeighborKnightLeftAbove ||
+			n == NeighborKnightLeftBelow {
 			return nil
 		}
 	case 'g':
-		if n == neighborKnightRightAbove ||
-			n == neighborKnightRightBelow {
+		if n == NeighborKnightRightAbove ||
+			n == NeighborKnightRightBelow {
 			return nil
 		}
 	case 'h':
-		if n == neighborAboveRight ||
-			n == neighborBelowRight ||
-			n == neighborRight {
+		if n == NeighborAboveRight ||
+			n == NeighborBelowRight ||
+			n == NeighborRight {
 			return nil
 		}
 	}
 
-	if sq.Rank == 1 && (n == neighborBelow || n == neighborBelowLeft || n == neighborBelowRight ||
-		n == neighborKnightLeftBelow || n == neighborKnightRightBelow || n == neighborKnightBelowLeft || n == neighborKnightBelowRight) {
+	if sq.Rank == 1 && (n == NeighborBelow || n == NeighborBelowLeft || n == NeighborBelowRight ||
+		n == NeighborKnightLeftBelow || n == NeighborKnightRightBelow || n == NeighborKnightBelowLeft || n == NeighborKnightBelowRight) {
 		return nil
 	}
 
-	if sq.Rank == 8 && (n == neighborAbove || n == neighborAboveLeft || n == neighborAboveRight ||
-		n == neighborKnightLeftAbove || n == neighborKnightRightAbove || n == neighborKnightAboveLeft || n == neighborKnightAboveRight) {
+	if sq.Rank == 8 && (n == NeighborAbove || n == NeighborAboveLeft || n == NeighborAboveRight ||
+		n == NeighborKnightLeftAbove || n == NeighborKnightRightAbove || n == NeighborKnightAboveLeft || n == NeighborKnightAboveRight) {
 		return nil
 	}
 
@@ -245,7 +245,7 @@ func (b *Board) FEN() string {
 	for rank := 8; rank >= 1; rank-- {
 		emptyCount = 0
 		for file := 'a'; file <= 'h'; file++ {
-			sq := b.getSquare(file, rank)
+			sq := b.GetSquare(file, rank)
 			if sq.Piece == nil {
 				emptyCount++
 			} else {
@@ -253,7 +253,7 @@ func (b *Board) FEN() string {
 					fen.WriteString(strconv.Itoa(emptyCount))
 					emptyCount = 0
 				}
-				fen.WriteString(toFEN(sq.Piece))
+				fen.WriteString(sq.Piece.toFEN())
 			}
 		}
 		if emptyCount > 0 {
@@ -293,7 +293,7 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 	mv.EnPassant = mv.Piece.Type == piecePawn && mv.CapturedPiece == nil && dest.File != mv.PrevSquare.File
 
 	if mv.EnPassant {
-		captureSq := b.getSquare(dest.File, mv.PrevSquare.Rank)
+		captureSq := b.GetSquare(dest.File, mv.PrevSquare.Rank)
 		if captureSq != nil {
 			mv.CapturedPiece = captureSq.Piece
 			mv.EnPassantCaptureSquare = captureSq
@@ -304,11 +304,11 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 	if mv.Castle {
 		var rookSource, rookDest *Square
 		if dest.File == 'g' {
-			rookSource = b.getSquare('h', dest.Rank)
-			rookDest = b.getSquare('f', dest.Rank)
+			rookSource = b.GetSquare('h', dest.Rank)
+			rookDest = b.GetSquare('f', dest.Rank)
 		} else {
-			rookSource = b.getSquare('a', dest.Rank)
-			rookDest = b.getSquare('d', dest.Rank)
+			rookSource = b.GetSquare('a', dest.Rank)
+			rookDest = b.GetSquare('d', dest.Rank)
 		}
 
 		if rookSource == nil || rookSource.Piece == nil {

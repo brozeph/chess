@@ -2,18 +2,18 @@ package chess
 
 import "testing"
 
-func mustMove(t *testing.T, client *algebraicGameClient, notation string) *MoveResult {
+func mustMove(t *testing.T, client *AlgebraicGameClient, notation string) *MoveResult {
 	t.Helper()
-	res, err := client.move(notation, false)
+	res, err := client.Move(notation, false)
 	if err != nil {
 		t.Fatalf("move %s failed: %v", notation, err)
 	}
 	return res
 }
 
-func mustStatus(t *testing.T, client *algebraicGameClient, force bool) *clientStatus {
+func mustStatus(t *testing.T, client *AlgebraicGameClient, force bool) *clientStatus {
 	t.Helper()
-	sts, err := client.getStatus(force)
+	sts, err := client.Status(force)
 	if err != nil {
 		t.Fatalf("getStatus failed: %v", err)
 	}
@@ -21,7 +21,7 @@ func mustStatus(t *testing.T, client *algebraicGameClient, force bool) *clientSt
 }
 
 func TestCreateInitialStatus(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	status := mustStatus(t, client, false)
 
@@ -43,7 +43,7 @@ func TestCreateInitialStatus(t *testing.T) {
 }
 
 func TestMoveEventTriggered(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var events []*Move
 
 	client.On("move", func(data interface{}) {
@@ -61,7 +61,7 @@ func TestMoveEventTriggered(t *testing.T) {
 }
 
 func TestStatusAfterMoves(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "b4")
 	mustMove(t, client, "e6")
@@ -77,7 +77,7 @@ func TestStatusAfterMoves(t *testing.T) {
 }
 
 func TestPawnCapture(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "e4")
 	mustMove(t, client, "d5")
@@ -89,7 +89,7 @@ func TestPawnCapture(t *testing.T) {
 }
 
 func TestCaptureEvent(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var events []*Move
 
 	client.On("capture", func(data interface{}) {
@@ -108,7 +108,7 @@ func TestCaptureEvent(t *testing.T) {
 }
 
 func TestMoveHistoryRecordsNotation(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "e4")
 	mustMove(t, client, "d5")
@@ -123,13 +123,13 @@ func TestMoveHistoryRecordsNotation(t *testing.T) {
 }
 
 func TestCaptureHistoryAndUndo(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "e4")
 	mustMove(t, client, "d5")
 	capture := mustMove(t, client, "exd5")
 
-	history := client.getCaptureHistory()
+	history := client.CaptureHistory()
 	if len(history) != 1 {
 		t.Fatalf("expected capture history length 1, got %d", len(history))
 	}
@@ -139,14 +139,14 @@ func TestCaptureHistoryAndUndo(t *testing.T) {
 
 	capture.Undo()
 
-	history = client.getCaptureHistory()
+	history = client.CaptureHistory()
 	if len(history) != 0 {
 		t.Fatalf("expected empty capture history after undo, got %d", len(history))
 	}
 }
 
 func TestKnightDisambiguation(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "Nc3")
 	mustMove(t, client, "Nf6")
@@ -166,7 +166,7 @@ func TestKnightDisambiguation(t *testing.T) {
 }
 
 func TestRookDisambiguationRanks(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "a4")
 	mustMove(t, client, "a5")
@@ -187,7 +187,7 @@ func TestRookDisambiguationRanks(t *testing.T) {
 }
 
 func TestRookDisambiguationFiles(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	sequence := []string{
 		"a4", "a5", "h4", "h5", "Ra3", "Ra6", "Rhh3", "Rhh6",
@@ -208,7 +208,7 @@ func TestRookDisambiguationFiles(t *testing.T) {
 }
 
 func TestWhiteCastleLeftEvent(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var events []*Move
 
 	client.On("castle", func(data interface{}) {
@@ -217,9 +217,9 @@ func TestWhiteCastleLeftEvent(t *testing.T) {
 		}
 	})
 
-	client.game.Board.getSquare('b', 1).Piece = nil
-	client.game.Board.getSquare('c', 1).Piece = nil
-	client.game.Board.getSquare('d', 1).Piece = nil
+	client.game.Board.GetSquare('b', 1).Piece = nil
+	client.game.Board.GetSquare('c', 1).Piece = nil
+	client.game.Board.GetSquare('d', 1).Piece = nil
 
 	status := mustStatus(t, client, true)
 	if _, ok := status.NotatedMoves["0-0-0"]; !ok {
@@ -234,7 +234,7 @@ func TestWhiteCastleLeftEvent(t *testing.T) {
 }
 
 func TestWhiteCastleLeftPGN(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{PGN: true})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{PGN: true})
 	var events []*Move
 
 	client.On("castle", func(data interface{}) {
@@ -243,9 +243,9 @@ func TestWhiteCastleLeftPGN(t *testing.T) {
 		}
 	})
 
-	client.game.Board.getSquare('b', 1).Piece = nil
-	client.game.Board.getSquare('c', 1).Piece = nil
-	client.game.Board.getSquare('d', 1).Piece = nil
+	client.game.Board.GetSquare('b', 1).Piece = nil
+	client.game.Board.GetSquare('c', 1).Piece = nil
+	client.game.Board.GetSquare('d', 1).Piece = nil
 
 	status := mustStatus(t, client, true)
 	if _, ok := status.NotatedMoves["O-O-O"]; !ok {
@@ -260,7 +260,7 @@ func TestWhiteCastleLeftPGN(t *testing.T) {
 }
 
 func TestBlackCastleRightEvent(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var events []*Move
 
 	client.On("castle", func(data interface{}) {
@@ -269,8 +269,8 @@ func TestBlackCastleRightEvent(t *testing.T) {
 		}
 	})
 
-	client.game.Board.getSquare('f', 8).Piece = nil
-	client.game.Board.getSquare('g', 8).Piece = nil
+	client.game.Board.GetSquare('f', 8).Piece = nil
+	client.game.Board.GetSquare('g', 8).Piece = nil
 	mustStatus(t, client, true)
 	mustMove(t, client, "a4")
 	status := mustStatus(t, client, false)
@@ -287,7 +287,7 @@ func TestBlackCastleRightEvent(t *testing.T) {
 }
 
 func TestBlackCastleRightPGN(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{PGN: true})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{PGN: true})
 	var events []*Move
 
 	client.On("castle", func(data interface{}) {
@@ -296,8 +296,8 @@ func TestBlackCastleRightPGN(t *testing.T) {
 		}
 	})
 
-	client.game.Board.getSquare('f', 8).Piece = nil
-	client.game.Board.getSquare('g', 8).Piece = nil
+	client.game.Board.GetSquare('f', 8).Piece = nil
+	client.game.Board.GetSquare('g', 8).Piece = nil
 	mustStatus(t, client, true)
 	mustMove(t, client, "a4")
 	status := mustStatus(t, client, false)
@@ -314,11 +314,11 @@ func TestBlackCastleRightPGN(t *testing.T) {
 }
 
 func TestParseWhiteCastleLeft(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('b', 1).Piece = nil
-	client.game.Board.getSquare('c', 1).Piece = nil
-	client.game.Board.getSquare('d', 1).Piece = nil
+	client.game.Board.GetSquare('b', 1).Piece = nil
+	client.game.Board.GetSquare('c', 1).Piece = nil
+	client.game.Board.GetSquare('d', 1).Piece = nil
 	mustStatus(t, client, true)
 
 	res := mustMove(t, client, "O-O-O")
@@ -328,11 +328,11 @@ func TestParseWhiteCastleLeft(t *testing.T) {
 }
 
 func TestParseWhiteCastleLeftPGN(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{PGN: true})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{PGN: true})
 
-	client.game.Board.getSquare('b', 1).Piece = nil
-	client.game.Board.getSquare('c', 1).Piece = nil
-	client.game.Board.getSquare('d', 1).Piece = nil
+	client.game.Board.GetSquare('b', 1).Piece = nil
+	client.game.Board.GetSquare('c', 1).Piece = nil
+	client.game.Board.GetSquare('d', 1).Piece = nil
 	mustStatus(t, client, true)
 
 	res := mustMove(t, client, "0-0-0")
@@ -342,10 +342,10 @@ func TestParseWhiteCastleLeftPGN(t *testing.T) {
 }
 
 func TestParseBlackCastleRight(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('f', 8).Piece = nil
-	client.game.Board.getSquare('g', 8).Piece = nil
+	client.game.Board.GetSquare('f', 8).Piece = nil
+	client.game.Board.GetSquare('g', 8).Piece = nil
 	mustStatus(t, client, true)
 	mustMove(t, client, "a4")
 
@@ -356,10 +356,10 @@ func TestParseBlackCastleRight(t *testing.T) {
 }
 
 func TestParseBlackCastleRightPGN(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('f', 8).Piece = nil
-	client.game.Board.getSquare('g', 8).Piece = nil
+	client.game.Board.GetSquare('f', 8).Piece = nil
+	client.game.Board.GetSquare('g', 8).Piece = nil
 	mustStatus(t, client, true)
 	mustMove(t, client, "a4")
 
@@ -370,13 +370,13 @@ func TestParseBlackCastleRightPGN(t *testing.T) {
 }
 
 func TestWhitePawnPromotionMoves(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('a', 7).Piece = nil
-	client.game.Board.getSquare('a', 8).Piece = nil
-	client.game.Board.getSquare('a', 2).Piece = nil
-	client.game.Board.getSquare('a', 7).Piece = newPiece(piecePawn, sideWhite)
-	client.game.Board.getSquare('a', 7).Piece.MoveCount = 1
+	client.game.Board.GetSquare('a', 7).Piece = nil
+	client.game.Board.GetSquare('a', 8).Piece = nil
+	client.game.Board.GetSquare('a', 2).Piece = nil
+	client.game.Board.GetSquare('a', 7).Piece = newPiece(piecePawn, sideWhite)
+	client.game.Board.GetSquare('a', 7).Piece.MoveCount = 1
 
 	status := mustStatus(t, client, true)
 
@@ -392,13 +392,13 @@ func TestWhitePawnPromotionMoves(t *testing.T) {
 }
 
 func TestBlackPawnPromotionMoves(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('a', 2).Piece = nil
-	client.game.Board.getSquare('a', 1).Piece = nil
-	client.game.Board.getSquare('a', 7).Piece = nil
-	client.game.Board.getSquare('a', 2).Piece = newPiece(piecePawn, sideBlack)
-	client.game.Board.getSquare('a', 2).Piece.MoveCount = 1
+	client.game.Board.GetSquare('a', 2).Piece = nil
+	client.game.Board.GetSquare('a', 1).Piece = nil
+	client.game.Board.GetSquare('a', 7).Piece = nil
+	client.game.Board.GetSquare('a', 2).Piece = newPiece(piecePawn, sideBlack)
+	client.game.Board.GetSquare('a', 2).Piece.MoveCount = 1
 
 	mustStatus(t, client, true)
 	mustMove(t, client, "h4")
@@ -416,13 +416,13 @@ func TestBlackPawnPromotionMoves(t *testing.T) {
 }
 
 func TestWhitePawnPromotionExecution(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	for _, sq := range []string{"a7", "a8", "b8", "c8", "d8", "a2"} {
 		client.game.Board.getSquareByName(sq).Piece = nil
 	}
-	client.game.Board.getSquare('a', 7).Piece = newPiece(piecePawn, sideWhite)
-	client.game.Board.getSquare('a', 7).Piece.MoveCount = 1
+	client.game.Board.GetSquare('a', 7).Piece = newPiece(piecePawn, sideWhite)
+	client.game.Board.GetSquare('a', 7).Piece.MoveCount = 1
 
 	mustStatus(t, client, true)
 	res := mustMove(t, client, "a8R")
@@ -440,13 +440,13 @@ func TestWhitePawnPromotionExecution(t *testing.T) {
 }
 
 func TestBlackPawnPromotionExecution(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	for _, sq := range []string{"a2", "a1", "b1", "c1", "d1", "a7"} {
 		client.game.Board.getSquareByName(sq).Piece = nil
 	}
-	client.game.Board.getSquare('a', 2).Piece = newPiece(piecePawn, sideBlack)
-	client.game.Board.getSquare('a', 2).Piece.MoveCount = 1
+	client.game.Board.GetSquare('a', 2).Piece = newPiece(piecePawn, sideBlack)
+	client.game.Board.GetSquare('a', 2).Piece.MoveCount = 1
 
 	mustStatus(t, client, true)
 	mustMove(t, client, "h3")
@@ -465,7 +465,7 @@ func TestBlackPawnPromotionExecution(t *testing.T) {
 }
 
 func TestPromotionEvent(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var events []*Square
 
 	client.On("promote", func(data interface{}) {
@@ -477,8 +477,8 @@ func TestPromotionEvent(t *testing.T) {
 	for _, sq := range []string{"a7", "a8", "b8", "c8", "d8", "a2"} {
 		client.game.Board.getSquareByName(sq).Piece = nil
 	}
-	client.game.Board.getSquare('a', 7).Piece = newPiece(piecePawn, sideWhite)
-	client.game.Board.getSquare('a', 7).Piece.MoveCount = 1
+	client.game.Board.GetSquare('a', 7).Piece = newPiece(piecePawn, sideWhite)
+	client.game.Board.GetSquare('a', 7).Piece.MoveCount = 1
 
 	mustStatus(t, client, true)
 	mustMove(t, client, "a8R")
@@ -492,7 +492,7 @@ func TestPromotionEvent(t *testing.T) {
 }
 
 func TestAmbiguousNotationThrows(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	sequence := []string{
 		"a4", "a5", "h4", "h5", "Ra3", "Ra6",
 	}
@@ -500,24 +500,24 @@ func TestAmbiguousNotationThrows(t *testing.T) {
 		mustMove(t, client, mv)
 	}
 
-	if _, err := client.move("Rh3", false); err == nil {
+	if _, err := client.Move("Rh3", false); err == nil {
 		t.Fatalf("expected ambiguous notation error")
 	}
 }
 
 func TestInvalidNotationThrows(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	if _, err := client.move("h6", false); err == nil {
+	if _, err := client.Move("h6", false); err == nil {
 		t.Fatalf("expected move error for h6")
 	}
-	if _, err := client.move("z9", false); err == nil {
+	if _, err := client.Move("z9", false); err == nil {
 		t.Fatalf("expected move error for z9")
 	}
 }
 
 func TestVerboseNotationParses(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	res := mustMove(t, client, "Nb1c3")
 	if res.Move.PostSquare.File != 'c' || res.Move.PostSquare.Rank != 3 {
@@ -529,8 +529,8 @@ func TestVerboseNotationParses(t *testing.T) {
 }
 
 func TestIssue1NoPhantomPawn(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
-	target := client.game.Board.getSquare('c', 5)
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
+	target := client.game.Board.GetSquare('c', 5)
 
 	moves := []string{
 		"e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6",
@@ -551,8 +551,8 @@ func TestIssue1NoPhantomPawn(t *testing.T) {
 }
 
 func TestIssue3NoPhantomPawn(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
-	target := client.game.Board.getSquare('a', 6)
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
+	target := client.game.Board.GetSquare('a', 6)
 
 	moves := []string{
 		"e4", "e5", "d3", "Nc6", "Nf3", "Bb4",
@@ -582,7 +582,7 @@ func TestIssue3NoPhantomPawn(t *testing.T) {
 }
 
 func TestIssue4CheckmateDetection(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	moves := []string{
 		"e4", "e5", "Nc3", "d6", "Bc4", "Be6",
@@ -607,8 +607,8 @@ func TestIssue4CheckmateDetection(t *testing.T) {
 }
 
 func TestIssue8NoPhantomPawn(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
-	target := client.game.Board.getSquare('e', 6)
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
+	target := client.game.Board.GetSquare('e', 6)
 
 	mustMove(t, client, "d4")
 	mustMove(t, client, "a6")
@@ -626,7 +626,7 @@ func TestIssue8NoPhantomPawn(t *testing.T) {
 }
 
 func TestIssue15PawnAdvance(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "e4")
 	mustMove(t, client, "a5")
@@ -639,16 +639,16 @@ func TestIssue15PawnAdvance(t *testing.T) {
 }
 
 func TestIssue17PromotionAvailability(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('c', 7).Piece = nil
-	client.game.Board.getSquare('c', 8).Piece = nil
-	client.game.Board.getSquare('c', 2).Piece = nil
-	client.game.Board.getSquare('c', 7).Piece = newPiece(piecePawn, sideWhite)
-	client.game.Board.getSquare('c', 7).Piece.MoveCount = 1
-	client.game.Board.getSquare('h', 7).Piece = nil
-	client.game.Board.getSquare('h', 7).Piece = newPiece(pieceBishop, sideWhite)
-	client.game.Board.getSquare('h', 7).Piece.MoveCount = 1
+	client.game.Board.GetSquare('c', 7).Piece = nil
+	client.game.Board.GetSquare('c', 8).Piece = nil
+	client.game.Board.GetSquare('c', 2).Piece = nil
+	client.game.Board.GetSquare('c', 7).Piece = newPiece(piecePawn, sideWhite)
+	client.game.Board.GetSquare('c', 7).Piece.MoveCount = 1
+	client.game.Board.GetSquare('h', 7).Piece = nil
+	client.game.Board.GetSquare('h', 7).Piece = newPiece(pieceBishop, sideWhite)
+	client.game.Board.GetSquare('h', 7).Piece.MoveCount = 1
 
 	status := mustStatus(t, client, true)
 
@@ -663,12 +663,12 @@ func TestIssue17PromotionAvailability(t *testing.T) {
 }
 
 func TestIssue18PromotionAvailability(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	client.game.Board.getSquare('c', 7).Piece = nil
-	client.game.Board.getSquare('c', 2).Piece = nil
-	client.game.Board.getSquare('c', 7).Piece = newPiece(piecePawn, sideWhite)
-	client.game.Board.getSquare('c', 7).Piece.MoveCount = 1
+	client.game.Board.GetSquare('c', 7).Piece = nil
+	client.game.Board.GetSquare('c', 2).Piece = nil
+	client.game.Board.GetSquare('c', 7).Piece = newPiece(piecePawn, sideWhite)
+	client.game.Board.GetSquare('c', 7).Piece.MoveCount = 1
 
 	status := mustStatus(t, client, true)
 
@@ -683,7 +683,7 @@ func TestIssue18PromotionAvailability(t *testing.T) {
 }
 
 func TestIssue23CheckEvent(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var event kingThreatEvent
 	triggered := false
 
@@ -694,9 +694,9 @@ func TestIssue23CheckEvent(t *testing.T) {
 		}
 	})
 
-	client.game.Board.getSquare('b', 1).Piece = nil
-	client.game.Board.getSquare('f', 6).Piece = newPiece(pieceKnight, sideWhite)
-	client.game.Board.getSquare('f', 6).Piece.MoveCount = 1
+	client.game.Board.GetSquare('b', 1).Piece = nil
+	client.game.Board.GetSquare('f', 6).Piece = newPiece(pieceKnight, sideWhite)
+	client.game.Board.GetSquare('f', 6).Piece.MoveCount = 1
 
 	mustMove(t, client, "a3")
 	status := mustStatus(t, client, true)
@@ -719,7 +719,7 @@ func TestIssue23CheckEvent(t *testing.T) {
 }
 
 func TestIssue43ParseGxf3Check(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	moves := []string{
 		"d4", "d6", "e4", "Nf6", "Nc3", "e5", "Nf3", "Nbd7",
@@ -743,7 +743,7 @@ func TestIssue43ParseGxf3Check(t *testing.T) {
 }
 
 func TestIssue53EnPassantEvent(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 	var events []*Move
 
 	client.On("enPassant", func(data interface{}) {
@@ -773,26 +773,26 @@ func TestIssue53EnPassantEvent(t *testing.T) {
 }
 
 func TestGetFEN(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	if got := client.getFEN(); got != "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR" {
+	if got := client.FEN(); got != "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR" {
 		t.Fatalf("unexpected FEN %s", got)
 	}
 }
 
 func TestFromFENRespectsSideToMove(t *testing.T) {
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1"
-	client, err := createAlgebraicGameClientFromFEN(fen, algebraicClientOptions{})
+	client, err := CreateAlgebraicGameClientFromFEN(fen, AlgebraicClientOptions{})
 	if err != nil {
 		t.Fatalf("fromFEN failed: %v", err)
 	}
 
 	expectedFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
-	if got := client.getFEN(); got != expectedFEN {
+	if got := client.FEN(); got != expectedFEN {
 		t.Fatalf("board mismatch: got %s want %s", got, expectedFEN)
 	}
 
-	if _, err := client.move("e4", false); err == nil {
+	if _, err := client.Move("e4", false); err == nil {
 		t.Fatalf("expected white move to fail")
 	}
 
@@ -806,7 +806,7 @@ func TestFromFENRespectsSideToMove(t *testing.T) {
 }
 
 func TestIssue71UndoRestoresStatus(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "e4")
 	mustMove(t, client, "c5").Undo()
@@ -821,7 +821,7 @@ func TestIssue71UndoRestoresStatus(t *testing.T) {
 }
 
 func TestIssue77UndoFirstMove(t *testing.T) {
-	client := createAlgebraicGameClient(algebraicClientOptions{})
+	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
 	mustMove(t, client, "e4").Undo()
 

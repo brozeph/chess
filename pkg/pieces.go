@@ -39,7 +39,7 @@ func newPiece(pt pieceType, sd Side) *Piece {
 	}
 }
 
-func toFEN(p *Piece) string {
+func (p *Piece) toFEN() string {
 	if p == nil {
 		return ""
 	}
@@ -62,6 +62,36 @@ func toFEN(p *Piece) string {
 
 	if p.Side == sideWhite {
 		return strings.ToUpper(symbol)
+	}
+
+	return symbol
+}
+
+func (p *Piece) AlgebraicSymbol() rune {
+	if p == nil {
+		return '.'
+	}
+
+	var symbol rune
+	switch p.Type {
+	case piecePawn:
+		symbol = 'p'
+	case pieceKnight:
+		symbol = 'n'
+	case pieceBishop:
+		symbol = 'b'
+	case pieceRook:
+		symbol = 'r'
+	case pieceQueen:
+		symbol = 'q'
+	case pieceKing:
+		symbol = 'k'
+	default:
+		symbol = '?'
+	}
+
+	if p.Side == sideWhite {
+		return rune(strings.ToUpper(string(symbol))[0])
 	}
 
 	return symbol
