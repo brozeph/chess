@@ -10,7 +10,7 @@ import (
 type Game struct {
 	Board          *Board
 	CaptureHistory []*Piece
-	MoveHistory    []*Move
+	MoveHistory    []*moveEvent
 	sideResolver   func(*Game) Side
 	emitter        eventEmitter
 }
@@ -19,7 +19,7 @@ func createGame() *Game {
 	g := &Game{
 		Board:          CreateBoard(),
 		CaptureHistory: []*Piece{},
-		MoveHistory:    []*Move{},
+		MoveHistory:    []*moveEvent{},
 		emitter:        newEventEmitter(),
 	}
 
@@ -38,7 +38,7 @@ func (g *Game) emit(event string, data interface{}) {
 
 func (g *Game) hookBoardEvents() {
 	g.Board.on("move", func(data interface{}) {
-		mv, ok := data.(*Move)
+		mv, ok := data.(*moveEvent)
 		if !ok || mv == nil {
 			return
 		}
@@ -63,7 +63,7 @@ func (g *Game) hookBoardEvents() {
 	})
 
 	g.Board.on("undo", func(data interface{}) {
-		mv, ok := data.(*Move)
+		mv, ok := data.(*moveEvent)
 		if !ok || mv == nil {
 			return
 		}
@@ -124,7 +124,7 @@ func (g *Game) getHashCode() string {
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
-func (g *Game) recordMove(mv *Move) {
+func (g *Game) recordMove(mv *moveEvent) {
 	if mv == nil {
 		return
 	}
@@ -137,7 +137,7 @@ func (g *Game) recordMove(mv *Move) {
 	}
 }
 
-func (g *Game) move(src, dest *Square, notation string) (*MoveResult, error) {
+func (g *Game) move(src, dest *Square, notation string) (*moveResult, error) {
 	res, err := g.Board.Move(src, dest, false, notation)
 	if err != nil {
 		return nil, err

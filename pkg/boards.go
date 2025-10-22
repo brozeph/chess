@@ -267,7 +267,7 @@ func (b *Board) FEN() string {
 	return fen.String()
 }
 
-func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveResult, error) {
+func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*moveResult, error) {
 	if src == nil || dest == nil {
 		return nil, errors.New("source and destination squares are required")
 	}
@@ -276,7 +276,7 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 		return nil, fmt.Errorf("no piece on source square %s", src.name())
 	}
 
-	mv := &Move{
+	mv := &moveEvent{
 		Algebraic:     notation,
 		CapturedPiece: dest.Piece,
 		PostSquare:    dest,
@@ -367,7 +367,7 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 		mv.undone = true
 	}
 
-	return &MoveResult{
+	return &moveResult{
 		Move: mv,
 		undo: undo,
 	}, nil
@@ -377,9 +377,11 @@ func (b *Board) Promote(sq *Square, p *Piece) (*Square, error) {
 	if sq == nil {
 		return nil, errors.New("square is required for promotion")
 	}
+
 	if sq.Piece == nil {
 		return nil, fmt.Errorf("no piece to promote on %s", sq.name())
 	}
+
 	p.MoveCount = sq.Piece.MoveCount
 	sq.Piece = p
 	b.LastMovedPiece = p

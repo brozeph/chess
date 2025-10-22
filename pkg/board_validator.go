@@ -14,11 +14,11 @@ func CreateBoardValidator(g *Game) *boardValidator {
 	}
 }
 
-func (v *boardValidator) evaluateCastle(validMoves []validMove) {
+func (v *boardValidator) evaluateCastle(validMoves []potentialMoves) {
 	getValidSquares := func(src *Square) []*Square {
 		for _, vm := range validMoves {
-			if vm.Src == src {
-				return vm.Squares
+			if vm.origin == src {
+				return vm.destinationSquares
 			}
 		}
 		return nil
@@ -70,8 +70,8 @@ func (v *boardValidator) evaluateCastle(validMoves []validMove) {
 					if moveSquares != nil {
 						moveSquares = append(moveSquares, squares['c'])
 						for idx := range validMoves {
-							if validMoves[idx].Src == squares['e'] {
-								validMoves[idx].Squares = moveSquares
+							if validMoves[idx].origin == squares['e'] {
+								validMoves[idx].destinationSquares = moveSquares
 							}
 						}
 					}
@@ -101,8 +101,8 @@ func (v *boardValidator) evaluateCastle(validMoves []validMove) {
 					if moveSquares != nil {
 						moveSquares = append(moveSquares, squares['g'])
 						for idx := range validMoves {
-							if validMoves[idx].Src == squares['e'] {
-								validMoves[idx].Squares = moveSquares
+							if validMoves[idx].origin == squares['e'] {
+								validMoves[idx].destinationSquares = moveSquares
 							}
 						}
 					}
@@ -115,13 +115,13 @@ func (v *boardValidator) evaluateCastle(validMoves []validMove) {
 	}
 }
 
-func (v *boardValidator) filterKingAttack(kingSquare *Square, moves []validMove) []validMove {
-	filtered := make([]validMove, 0, len(moves))
+func (v *boardValidator) filterKingAttack(kingSquare *Square, moves []potentialMoves) []potentialMoves {
+	filtered := make([]potentialMoves, 0, len(moves))
 
 	for _, mv := range moves {
 		validSquares := []*Square{}
-		for _, dest := range mv.Squares {
-			res, err := v.board.Move(mv.Src, dest, true, "")
+		for _, dest := range mv.destinationSquares {
+			res, err := v.board.Move(mv.origin, dest, true, "")
 			if err != nil {
 				continue
 			}
@@ -141,9 +141,9 @@ func (v *boardValidator) filterKingAttack(kingSquare *Square, moves []validMove)
 		}
 
 		if len(validSquares) > 0 {
-			filtered = append(filtered, validMove{
-				Src:     mv.Src,
-				Squares: validSquares,
+			filtered = append(filtered, potentialMoves{
+				origin:             mv.origin,
+				destinationSquares: validSquares,
 			})
 		}
 	}
@@ -246,13 +246,13 @@ func (v *boardValidator) isSquareAttacked(sq *Square) bool {
 	return len(v.findAttackers(sq)) > 0
 }
 
-func (v *boardValidator) Check() ([]validMove, error) {
+func (v *boardValidator) Check() ([]potentialMoves, error) {
 	if v.board == nil {
 		return nil, errors.New("board is invalid")
 	}
 
 	squares := v.board.getSquares(v.game.getCurrentSide())
-	validMoves := []validMove{}
+	validMoves := []potentialMoves{}
 	var kingSquare *Square
 
 	for _, sq := range squares {
@@ -271,9 +271,9 @@ func (v *boardValidator) Check() ([]validMove, error) {
 		}
 
 		if len(destSquares) > 0 {
-			validMoves = append(validMoves, validMove{
-				Src:     sq,
-				Squares: destSquares,
+			validMoves = append(validMoves, potentialMoves{
+				origin:             sq,
+				destinationSquares: destSquares,
 			})
 		}
 	}

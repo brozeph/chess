@@ -4,6 +4,20 @@ type gameValidator struct {
 	game *Game
 }
 
+type attackContext struct {
+	attacked bool
+	piece    *Piece
+	square   *Square
+}
+
+type validationResult struct {
+	IsCheck      bool
+	IsCheckmate  bool
+	IsRepetition bool
+	IsStalemate  bool
+	ValidMoves   []potentialMoves
+}
+
 func CreateGameValidator(g *Game) *gameValidator {
 	return &gameValidator{game: g}
 }
@@ -35,7 +49,7 @@ func (gv *gameValidator) Check() (*validationResult, error) {
 		IsCheckmate:  false,
 		IsRepetition: false,
 		IsStalemate:  false,
-		ValidMoves:   []validMove{},
+		ValidMoves:   []potentialMoves{},
 	}
 
 	bv := CreateBoardValidator(gv.game)
