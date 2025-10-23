@@ -26,3 +26,26 @@ func (e *eventEmitter) emit(event string, data interface{}) {
 		handler(data)
 	}
 }
+
+type kingThreatEvent struct {
+	AttackingSquare *Square
+	KingSquare      *Square
+}
+
+type moveEvent struct {
+	Algebraic              string
+	CapturedPiece          *Piece
+	Castle                 bool
+	EnPassant              bool
+	Piece                  *Piece
+	PostSquare             *Square
+	PrevSquare             *Square
+	Promotion              bool
+	RookSource             *Square
+	RookDestination        *Square
+	EnPassantCaptureSquare *Square
+	hashCode               string
+	prevMoveCount          int
+	simulate               bool
+	undone                 bool
+}

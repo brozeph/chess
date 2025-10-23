@@ -10,7 +10,7 @@ type pieceValidator struct {
 	allowHorizontal  bool
 	repeat           int
 	pieceType        pieceType
-	specialValidator func(v *pieceValidator, ctx *validationContext)
+	specialValidator func(v *pieceValidator, pm *potentialMoves)
 }
 
 func CreatePieceValidator(pt pieceType, b *Board) *pieceValidator {
@@ -31,12 +31,12 @@ func CreatePieceValidator(pt pieceType, b *Board) *pieceValidator {
 		v.allowHorizontal = true
 		v.repeat = 1
 	case pieceKnight:
-		v.specialValidator = knightSpecial
 		v.repeat = 1
+		v.specialValidator = knightSpecial
 	case piecePawn:
 		v.allowForward = true
-		v.specialValidator = pawnSpecial
 		v.repeat = 1
+		v.specialValidator = pawnSpecial
 	case pieceQueen:
 		v.allowBackward = true
 		v.allowDiagonal = true
@@ -58,10 +58,10 @@ func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 		return nil, errors.New("piece is invalid")
 	}
 
-	ctx := &validationContext{
-		destSquares: []*Square{},
-		origin:      origin,
-		p:           origin.Piece,
+	ctx := &potentialMoves{
+		origin:             origin,
+		destinationSquares: []*Square{},
+		piece:              origin.Piece,
 	}
 
 	findMoveOptions := func(direction neighbor) {
@@ -69,11 +69,11 @@ func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 		steps := 0
 
 		for current != nil && steps < v.repeat {
-			block := current.Piece != nil && (ctx.p.Type == piecePawn || current.Piece.Side == ctx.p.Side)
+			block := current.Piece != nil && (ctx.piece.Type == piecePawn || current.Piece.Side == ctx.piece.Side)
 			capture := current.Piece != nil && !block
 
 			if !block {
-				ctx.destSquares = append(ctx.destSquares, current)
+				ctx.destinationSquares = append(ctx.destinationSquares, current)
 			}
 
 			if capture || block {
@@ -86,19 +86,19 @@ func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 	}
 
 	if v.allowForward {
-		if ctx.p.Side == sideWhite {
-			findMoveOptions(NeighborAbove)
-		} else {
-			findMoveOptions(NeighborBelow)
+		forward := NeighborBelow
+		if ctx.piece.Side == sideWhite {
+			forward = NeighborAbove
 		}
+		findMoveOptions(forward)
 	}
 
 	if v.allowBackward {
-		if ctx.p.Side == sideWhite {
-			findMoveOptions(NeighborBelow)
-		} else {
-			findMoveOptions(NeighborAbove)
+		backward := NeighborAbove
+		if ctx.piece.Side == sideWhite {
+			backward = NeighborBelow
 		}
+		findMoveOptions(backward)
 	}
 
 	if v.allowHorizontal {
@@ -117,16 +117,16 @@ func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 		v.specialValidator(v, ctx)
 	}
 
-	return ctx.destSquares, nil
+	return ctx.destinationSquares, nil
 }
 
-func knightSpecial(v *pieceValidator, ctx *validationContext) {
+func knightSpecial(v *pieceValidator, pm *potentialMoves) {
 	candidates := []*Square{}
 
-	aboveLeft := v.board.getNeighborSquare(ctx.origin, NeighborAboveLeft)
-	aboveRight := v.board.getNeighborSquare(ctx.origin, NeighborAboveRight)
-	belowLeft := v.board.getNeighborSquare(ctx.origin, NeighborBelowLeft)
-	belowRight := v.board.getNeighborSquare(ctx.origin, NeighborBelowRight)
+	aboveLeft := v.board.getNeighborSquare(pm.origin, NeighborAboveLeft)
+	aboveRight := v.board.getNeighborSquare(pm.origin, NeighborAboveRight)
+	belowLeft := v.board.getNeighborSquare(pm.origin, NeighborBelowLeft)
+	belowRight := v.board.getNeighborSquare(pm.origin, NeighborBelowRight)
 
 	if aboveLeft != nil {
 		candidates = append(candidates,
@@ -161,58 +161,56 @@ func knightSpecial(v *pieceValidator, ctx *validationContext) {
 			continue
 		}
 
-		if sq.Piece == nil || sq.Piece.Side != ctx.p.Side {
-			ctx.destSquares = append(ctx.destSquares, sq)
+		if sq.Piece == nil || sq.Piece.Side != pm.piece.Side {
+			pm.destinationSquares = append(pm.destinationSquares, sq)
 		}
 	}
 }
 
-func pawnSpecial(v *pieceValidator, ctx *validationContext) {
-	var diagLeft, diagRight *Square
-	if ctx.p.Side == sideWhite {
-		diagLeft = v.board.getNeighborSquare(ctx.origin, NeighborAboveLeft)
-		diagRight = v.board.getNeighborSquare(ctx.origin, NeighborAboveRight)
-	} else {
-		diagLeft = v.board.getNeighborSquare(ctx.origin, NeighborBelowLeft)
-		diagRight = v.board.getNeighborSquare(ctx.origin, NeighborBelowRight)
+func pawnSpecial(v *pieceValidator, pm *potentialMoves) {
+	diagLeft := v.board.getNeighborSquare(pm.origin, NeighborBelowLeft)
+	diagRight := v.board.getNeighborSquare(pm.origin, NeighborBelowRight)
+	if pm.piece.Side == sideWhite {
+		diagLeft = v.board.getNeighborSquare(pm.origin, NeighborAboveLeft)
+		diagRight = v.board.getNeighborSquare(pm.origin, NeighborAboveRight)
 	}
 
 	for _, sq := range []*Square{diagLeft, diagRight} {
 		if sq == nil {
 			continue
 		}
-		if sq.Piece != nil && sq.Piece.Side != ctx.p.Side {
-			ctx.destSquares = append(ctx.destSquares, sq)
+		if sq.Piece != nil && sq.Piece.Side != pm.piece.Side {
+			pm.destinationSquares = append(pm.destinationSquares, sq)
 		}
 	}
 
-	if ctx.p.MoveCount == 0 && len(ctx.destSquares) > 0 {
-		firstForward := ctx.destSquares[0]
+	if pm.piece.MoveCount == 0 && len(pm.destinationSquares) > 0 {
+		firstForward := pm.destinationSquares[0]
 		if firstForward != nil && firstForward.Piece == nil {
 			var further *Square
-			if ctx.p.Side == sideWhite {
-				further = v.board.getNeighborSquare(firstForward, NeighborAbove)
-			} else {
-				further = v.board.getNeighborSquare(firstForward, NeighborBelow)
+			furtherDirection := NeighborBelow
+			if pm.piece.Side == sideWhite {
+				furtherDirection = NeighborAbove
 			}
+			further = v.board.getNeighborSquare(firstForward, furtherDirection)
 
 			if further != nil && further.Piece == nil {
-				ctx.destSquares = append(ctx.destSquares, further)
+				pm.destinationSquares = append(pm.destinationSquares, further)
 			}
 		}
 	}
 
 	rankForEnPassant := 5
-	if ctx.p.Side == sideBlack {
+	if pm.piece.Side == sideBlack {
 		rankForEnPassant = 4
 	}
 
-	if ctx.origin.Rank != rankForEnPassant {
+	if pm.origin.Rank != rankForEnPassant {
 		return
 	}
 
-	left := v.board.getNeighborSquare(ctx.origin, NeighborLeft)
-	right := v.board.getNeighborSquare(ctx.origin, NeighborRight)
+	left := v.board.getNeighborSquare(pm.origin, NeighborLeft)
+	right := v.board.getNeighborSquare(pm.origin, NeighborRight)
 
 	for _, adj := range []*Square{left, right} {
 		if adj == nil || adj.Piece == nil {
@@ -220,17 +218,18 @@ func pawnSpecial(v *pieceValidator, ctx *validationContext) {
 		}
 
 		if adj.Piece.Type == piecePawn &&
-			adj.Piece.Side != ctx.p.Side &&
+			adj.Piece.Side != pm.piece.Side &&
 			adj.Piece.MoveCount == 1 &&
 			v.board.LastMovedPiece == adj.Piece {
-			var captureTarget *Square
+
+			captureDirection := NeighborBelow
 			if adj.Piece.Side == sideBlack {
-				captureTarget = v.board.getNeighborSquare(adj, NeighborAbove)
-			} else {
-				captureTarget = v.board.getNeighborSquare(adj, NeighborBelow)
+				captureDirection = NeighborAbove
 			}
+
+			captureTarget := v.board.getNeighborSquare(adj, captureDirection)
 			if captureTarget != nil {
-				ctx.destSquares = append(ctx.destSquares, captureTarget)
+				pm.destinationSquares = append(pm.destinationSquares, captureTarget)
 			}
 		}
 	}

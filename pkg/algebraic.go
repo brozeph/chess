@@ -24,26 +24,26 @@ type notationMove struct {
 	Dest *Square
 }
 
-func getValidMovesByPieceType(pt pieceType, validMoves []validMove) []validMove {
-	res := []validMove{}
+func getValidMovesByPieceType(pt pieceType, validMoves []potentialMoves) []potentialMoves {
+	res := []potentialMoves{}
 	for _, mv := range validMoves {
-		if mv.Src.Piece != nil && mv.Src.Piece.Type == pt {
+		if mv.origin.Piece != nil && mv.origin.Piece.Type == pt {
 			res = append(res, mv)
 		}
 	}
 	return res
 }
 
-func getNotationPrefix(src *Square, dest *Square, moves []validMove) string {
+func getNotationPrefix(src *Square, dest *Square, moves []potentialMoves) string {
 	prefix := src.Piece.Notation
 	fileCount := map[rune]int{}
 	rankCount := map[int]int{}
 
 	for _, mv := range moves {
-		for _, sq := range mv.Squares {
+		for _, sq := range mv.destinationSquares {
 			if sq == dest {
-				fileCount[mv.Src.File]++
-				rankCount[mv.Src.Rank]++
+				fileCount[mv.origin.File]++
+				rankCount[mv.origin.Rank]++
 			}
 		}
 	}
@@ -84,11 +84,13 @@ func sanitizeNotation(n string, usePGN bool) string {
 	clean = strings.ReplaceAll(clean, "#", "")
 	clean = strings.ReplaceAll(clean, "=", "")
 	clean = strings.ReplaceAll(clean, "\\", "")
+
 	if usePGN {
 		clean = strings.ReplaceAll(clean, "0", "O")
-	} else {
-		clean = strings.ReplaceAll(clean, "O", "0")
+		return clean
 	}
+
+	clean = strings.ReplaceAll(clean, "O", "0")
 	return clean
 }
 
@@ -104,7 +106,7 @@ type AlgebraicGameClient struct {
 	isRepetition bool
 	isStalemate  bool
 	notatedMoves map[string]notationMove
-	validMoves   []validMove
+	validMoves   []potentialMoves
 	validation   *gameValidator
 	emitter      eventEmitter
 }
@@ -115,7 +117,7 @@ func CreateAlgebraicGameClient(opts AlgebraicClientOptions) *AlgebraicGameClient
 		game:         g,
 		options:      opts,
 		notatedMoves: map[string]notationMove{},
-		validMoves:   []validMove{},
+		validMoves:   []potentialMoves{},
 		validation:   CreateGameValidator(g),
 		emitter:      newEventEmitter(),
 	}
@@ -172,7 +174,7 @@ func CreateAlgebraicGameClientFromFEN(fen string, opts AlgebraicClientOptions) (
 		game:         g,
 		options:      opts,
 		notatedMoves: map[string]notationMove{},
-		validMoves:   []validMove{},
+		validMoves:   []potentialMoves{},
 		validation:   CreateGameValidator(g),
 		emitter:      newEventEmitter(),
 	}
@@ -220,15 +222,15 @@ func (c *AlgebraicGameClient) emit(event string, data interface{}) {
 	c.emitter.emit(event, data)
 }
 
-func (c *AlgebraicGameClient) notate(validMoves []validMove) map[string]notationMove {
+func (c *AlgebraicGameClient) notate(validMoves []potentialMoves) map[string]notationMove {
 	algebraic := map[string]notationMove{}
 
 	for _, vm := range validMoves {
-		src := vm.Src
+		src := vm.origin
 		if src.Piece == nil {
 			continue
 		}
-		for _, dest := range vm.Squares {
+		for _, dest := range vm.destinationSquares {
 			prefix := ""
 			suffix := ""
 			isPromotion := false
@@ -255,28 +257,25 @@ func (c *AlgebraicGameClient) notate(validMoves []validMove) map[string]notation
 			switch src.Piece.Type {
 			case pieceBishop, pieceKnight, pieceQueen, pieceRook:
 				matches := getValidMovesByPieceType(src.Piece.Type, validMoves)
+				prefix = src.Piece.Notation
 				if len(matches) > 1 {
 					prefix = getNotationPrefix(src, dest, matches)
-				} else {
-					prefix = src.Piece.Notation
 				}
 			case pieceKing:
+				prefix = src.Piece.Notation
 				if src.File == 'e' && dest.File == 'g' {
+					prefix = "0-0"
 					if c.options.PGN {
 						prefix = "O-O"
-					} else {
-						prefix = "0-0"
 					}
 					suffix = ""
-				} else if src.File == 'e' && dest.File == 'c' {
+				}
+				if src.File == 'e' && dest.File == 'c' {
+					prefix = "0-0-0"
 					if c.options.PGN {
 						prefix = "O-O-O"
-					} else {
-						prefix = "0-0-0"
 					}
 					suffix = ""
-				} else {
-					prefix = src.Piece.Notation
 				}
 			case piecePawn:
 				if prefix == "" && dest.Piece == nil {
@@ -292,13 +291,14 @@ func (c *AlgebraicGameClient) notate(validMoves []validMove) map[string]notation
 				prefix = src.Piece.Notation
 			}
 
-			if isPromotion {
-				for _, promo := range []string{"R", "N", "B", "Q"} {
-					key := prefix + suffix + promo
-					algebraic[key] = notationMove{Src: src, Dest: dest}
-				}
-			} else {
+			if !isPromotion {
 				key := prefix + suffix
+				algebraic[key] = notationMove{Src: src, Dest: dest}
+				continue
+			}
+
+			for _, promo := range []string{"R", "N", "B", "Q"} {
+				key := prefix + suffix + promo
 				algebraic[key] = notationMove{Src: src, Dest: dest}
 			}
 		}
@@ -333,7 +333,7 @@ func (c *AlgebraicGameClient) FEN() string {
 	return c.game.Board.FEN()
 }
 
-func (c *AlgebraicGameClient) Move(notation string, fuzzy bool) (*MoveResult, error) {
+func (c *AlgebraicGameClient) Move(notation string, fuzzy bool) (*moveResult, error) {
 	if notation == "" {
 		return nil, errors.New("notation is invalid")
 	}

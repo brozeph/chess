@@ -248,17 +248,21 @@ func (b *Board) FEN() string {
 			sq := b.GetSquare(file, rank)
 			if sq.Piece == nil {
 				emptyCount++
-			} else {
-				if emptyCount > 0 {
-					fen.WriteString(strconv.Itoa(emptyCount))
-					emptyCount = 0
-				}
-				fen.WriteString(sq.Piece.toFEN())
+				continue
 			}
+
+			if emptyCount > 0 {
+				fen.WriteString(strconv.Itoa(emptyCount))
+				emptyCount = 0
+			}
+
+			fen.WriteString(sq.Piece.toFEN())
 		}
+
 		if emptyCount > 0 {
 			fen.WriteString(strconv.Itoa(emptyCount))
 		}
+
 		if rank > 1 {
 			fen.WriteRune('/')
 		}
@@ -267,7 +271,7 @@ func (b *Board) FEN() string {
 	return fen.String()
 }
 
-func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveResult, error) {
+func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*moveResult, error) {
 	if src == nil || dest == nil {
 		return nil, errors.New("source and destination squares are required")
 	}
@@ -276,7 +280,7 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 		return nil, fmt.Errorf("no piece on source square %s", src.name())
 	}
 
-	mv := &Move{
+	mv := &moveEvent{
 		Algebraic:     notation,
 		CapturedPiece: dest.Piece,
 		PostSquare:    dest,
@@ -302,18 +306,18 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 	}
 
 	if mv.Castle {
-		var rookSource, rookDest *Square
+		rookSource := b.GetSquare('a', dest.Rank)
+		rookDest := b.GetSquare('d', dest.Rank)
 		if dest.File == 'g' {
 			rookSource = b.GetSquare('h', dest.Rank)
 			rookDest = b.GetSquare('f', dest.Rank)
-		} else {
-			rookSource = b.GetSquare('a', dest.Rank)
-			rookDest = b.GetSquare('d', dest.Rank)
 		}
 
 		if rookSource == nil || rookSource.Piece == nil {
 			mv.Castle = false
-		} else {
+		}
+
+		if mv.Castle {
 			mv.RookSource = rookSource
 			mv.RookDestination = rookDest
 			if rookDest != nil {
@@ -367,7 +371,7 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*MoveRe
 		mv.undone = true
 	}
 
-	return &MoveResult{
+	return &moveResult{
 		Move: mv,
 		undo: undo,
 	}, nil
@@ -377,9 +381,11 @@ func (b *Board) Promote(sq *Square, p *Piece) (*Square, error) {
 	if sq == nil {
 		return nil, errors.New("square is required for promotion")
 	}
+
 	if sq.Piece == nil {
 		return nil, fmt.Errorf("no piece to promote on %s", sq.name())
 	}
+
 	p.MoveCount = sq.Piece.MoveCount
 	sq.Piece = p
 	b.LastMovedPiece = p
