@@ -248,17 +248,21 @@ func (b *Board) FEN() string {
 			sq := b.GetSquare(file, rank)
 			if sq.Piece == nil {
 				emptyCount++
-			} else {
-				if emptyCount > 0 {
-					fen.WriteString(strconv.Itoa(emptyCount))
-					emptyCount = 0
-				}
-				fen.WriteString(sq.Piece.toFEN())
+				continue
 			}
+
+			if emptyCount > 0 {
+				fen.WriteString(strconv.Itoa(emptyCount))
+				emptyCount = 0
+			}
+
+			fen.WriteString(sq.Piece.toFEN())
 		}
+
 		if emptyCount > 0 {
 			fen.WriteString(strconv.Itoa(emptyCount))
 		}
+
 		if rank > 1 {
 			fen.WriteRune('/')
 		}
@@ -302,18 +306,18 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*moveRe
 	}
 
 	if mv.Castle {
-		var rookSource, rookDest *Square
+		rookSource := b.GetSquare('a', dest.Rank)
+		rookDest := b.GetSquare('d', dest.Rank)
 		if dest.File == 'g' {
 			rookSource = b.GetSquare('h', dest.Rank)
 			rookDest = b.GetSquare('f', dest.Rank)
-		} else {
-			rookSource = b.GetSquare('a', dest.Rank)
-			rookDest = b.GetSquare('d', dest.Rank)
 		}
 
 		if rookSource == nil || rookSource.Piece == nil {
 			mv.Castle = false
-		} else {
+		}
+
+		if mv.Castle {
 			mv.RookSource = rookSource
 			mv.RookDestination = rookDest
 			if rookDest != nil {

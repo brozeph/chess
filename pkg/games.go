@@ -76,10 +76,9 @@ func (g *Game) hookBoardEvents() {
 			g.CaptureHistory = g.CaptureHistory[:len(g.CaptureHistory)-1]
 		}
 
+		g.Board.LastMovedPiece = nil
 		if len(g.MoveHistory) > 0 {
 			g.Board.LastMovedPiece = g.MoveHistory[len(g.MoveHistory)-1].Piece
-		} else {
-			g.Board.LastMovedPiece = nil
 		}
 
 		g.emit("undo", mv)
@@ -105,13 +104,15 @@ func (g *Game) getHashCode() string {
 			if builder.Len() > 0 {
 				builder.WriteRune('-')
 			}
+
 			builder.WriteRune(sq.File)
 			builder.WriteString(strconv.Itoa(sq.Rank))
+			sideMarker := "b"
 			if sq.Piece.Side == sideWhite {
-				builder.WriteString("w")
-			} else {
-				builder.WriteString("b")
+				sideMarker = "w"
 			}
+
+			builder.WriteString(sideMarker)
 			builder.WriteString(sq.Piece.Notation)
 			if sq.Piece.Type == piecePawn {
 				builder.WriteString("p")

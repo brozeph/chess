@@ -86,19 +86,19 @@ func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 	}
 
 	if v.allowForward {
+		forward := NeighborBelow
 		if ctx.piece.Side == sideWhite {
-			findMoveOptions(NeighborAbove)
-		} else {
-			findMoveOptions(NeighborBelow)
+			forward = NeighborAbove
 		}
+		findMoveOptions(forward)
 	}
 
 	if v.allowBackward {
+		backward := NeighborAbove
 		if ctx.piece.Side == sideWhite {
-			findMoveOptions(NeighborBelow)
-		} else {
-			findMoveOptions(NeighborAbove)
+			backward = NeighborBelow
 		}
+		findMoveOptions(backward)
 	}
 
 	if v.allowHorizontal {
@@ -168,13 +168,11 @@ func knightSpecial(v *pieceValidator, pm *potentialMoves) {
 }
 
 func pawnSpecial(v *pieceValidator, pm *potentialMoves) {
-	var diagLeft, diagRight *Square
+	diagLeft := v.board.getNeighborSquare(pm.origin, NeighborBelowLeft)
+	diagRight := v.board.getNeighborSquare(pm.origin, NeighborBelowRight)
 	if pm.piece.Side == sideWhite {
 		diagLeft = v.board.getNeighborSquare(pm.origin, NeighborAboveLeft)
 		diagRight = v.board.getNeighborSquare(pm.origin, NeighborAboveRight)
-	} else {
-		diagLeft = v.board.getNeighborSquare(pm.origin, NeighborBelowLeft)
-		diagRight = v.board.getNeighborSquare(pm.origin, NeighborBelowRight)
 	}
 
 	for _, sq := range []*Square{diagLeft, diagRight} {
@@ -190,11 +188,11 @@ func pawnSpecial(v *pieceValidator, pm *potentialMoves) {
 		firstForward := pm.destinationSquares[0]
 		if firstForward != nil && firstForward.Piece == nil {
 			var further *Square
+			furtherDirection := NeighborBelow
 			if pm.piece.Side == sideWhite {
-				further = v.board.getNeighborSquare(firstForward, NeighborAbove)
-			} else {
-				further = v.board.getNeighborSquare(firstForward, NeighborBelow)
+				furtherDirection = NeighborAbove
 			}
+			further = v.board.getNeighborSquare(firstForward, furtherDirection)
 
 			if further != nil && further.Piece == nil {
 				pm.destinationSquares = append(pm.destinationSquares, further)
@@ -223,12 +221,13 @@ func pawnSpecial(v *pieceValidator, pm *potentialMoves) {
 			adj.Piece.Side != pm.piece.Side &&
 			adj.Piece.MoveCount == 1 &&
 			v.board.LastMovedPiece == adj.Piece {
-			var captureTarget *Square
+
+			captureDirection := NeighborBelow
 			if adj.Piece.Side == sideBlack {
-				captureTarget = v.board.getNeighborSquare(adj, NeighborAbove)
-			} else {
-				captureTarget = v.board.getNeighborSquare(adj, NeighborBelow)
+				captureDirection = NeighborAbove
 			}
+
+			captureTarget := v.board.getNeighborSquare(adj, captureDirection)
 			if captureTarget != nil {
 				pm.destinationSquares = append(pm.destinationSquares, captureTarget)
 			}

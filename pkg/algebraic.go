@@ -84,11 +84,13 @@ func sanitizeNotation(n string, usePGN bool) string {
 	clean = strings.ReplaceAll(clean, "#", "")
 	clean = strings.ReplaceAll(clean, "=", "")
 	clean = strings.ReplaceAll(clean, "\\", "")
+
 	if usePGN {
 		clean = strings.ReplaceAll(clean, "0", "O")
-	} else {
-		clean = strings.ReplaceAll(clean, "O", "0")
+		return clean
 	}
+
+	clean = strings.ReplaceAll(clean, "O", "0")
 	return clean
 }
 
@@ -255,28 +257,25 @@ func (c *AlgebraicGameClient) notate(validMoves []potentialMoves) map[string]not
 			switch src.Piece.Type {
 			case pieceBishop, pieceKnight, pieceQueen, pieceRook:
 				matches := getValidMovesByPieceType(src.Piece.Type, validMoves)
+				prefix = src.Piece.Notation
 				if len(matches) > 1 {
 					prefix = getNotationPrefix(src, dest, matches)
-				} else {
-					prefix = src.Piece.Notation
 				}
 			case pieceKing:
+				prefix = src.Piece.Notation
 				if src.File == 'e' && dest.File == 'g' {
+					prefix = "0-0"
 					if c.options.PGN {
 						prefix = "O-O"
-					} else {
-						prefix = "0-0"
 					}
 					suffix = ""
-				} else if src.File == 'e' && dest.File == 'c' {
+				}
+				if src.File == 'e' && dest.File == 'c' {
+					prefix = "0-0-0"
 					if c.options.PGN {
 						prefix = "O-O-O"
-					} else {
-						prefix = "0-0-0"
 					}
 					suffix = ""
-				} else {
-					prefix = src.Piece.Notation
 				}
 			case piecePawn:
 				if prefix == "" && dest.Piece == nil {
@@ -292,13 +291,14 @@ func (c *AlgebraicGameClient) notate(validMoves []potentialMoves) map[string]not
 				prefix = src.Piece.Notation
 			}
 
-			if isPromotion {
-				for _, promo := range []string{"R", "N", "B", "Q"} {
-					key := prefix + suffix + promo
-					algebraic[key] = notationMove{Src: src, Dest: dest}
-				}
-			} else {
+			if !isPromotion {
 				key := prefix + suffix
+				algebraic[key] = notationMove{Src: src, Dest: dest}
+				continue
+			}
+
+			for _, promo := range []string{"R", "N", "B", "Q"} {
+				key := prefix + suffix + promo
 				algebraic[key] = notationMove{Src: src, Dest: dest}
 			}
 		}

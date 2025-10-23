@@ -62,10 +62,13 @@ func (v *boardValidator) evaluateCastle(validMoves []potentialMoves) {
 			squares['d'].Piece == nil {
 
 			res1, _ := v.board.Move(squares['e'], squares['d'], true, "")
-			if !v.isSquareAttacked(squares['d']) {
-				res1.Undo()
+			canStepThroughD := !v.isSquareAttacked(squares['d'])
+			res1.Undo()
+			if canStepThroughD {
 				res2, _ := v.board.Move(squares['e'], squares['c'], true, "")
-				if !v.isSquareAttacked(squares['c']) {
+				canLandOnC := !v.isSquareAttacked(squares['c'])
+				res2.Undo()
+				if canLandOnC {
 					moveSquares := getValidSquares(squares['e'])
 					if moveSquares != nil {
 						moveSquares = append(moveSquares, squares['c'])
@@ -76,9 +79,6 @@ func (v *boardValidator) evaluateCastle(validMoves []potentialMoves) {
 						}
 					}
 				}
-				res2.Undo()
-			} else {
-				res1.Undo()
 			}
 		}
 	}
@@ -93,10 +93,13 @@ func (v *boardValidator) evaluateCastle(validMoves []potentialMoves) {
 			squares['g'].Piece == nil {
 
 			res1, _ := v.board.Move(squares['e'], squares['f'], true, "")
-			if !v.isSquareAttacked(squares['f']) {
-				res1.Undo()
+			canStepThroughF := !v.isSquareAttacked(squares['f'])
+			res1.Undo()
+			if canStepThroughF {
 				res2, _ := v.board.Move(squares['e'], squares['g'], true, "")
-				if !v.isSquareAttacked(squares['g']) {
+				canLandOnG := !v.isSquareAttacked(squares['g'])
+				res2.Undo()
+				if canLandOnG {
 					moveSquares := getValidSquares(squares['e'])
 					if moveSquares != nil {
 						moveSquares = append(moveSquares, squares['g'])
@@ -107,9 +110,6 @@ func (v *boardValidator) evaluateCastle(validMoves []potentialMoves) {
 						}
 					}
 				}
-				res2.Undo()
-			} else {
-				res1.Undo()
 			}
 		}
 	}
@@ -126,10 +126,8 @@ func (v *boardValidator) filterKingAttack(kingSquare *Square, moves []potentialM
 				continue
 			}
 
-			isCheck := false
-			if res.Move.Piece.Type != pieceKing {
-				isCheck = v.isSquareAttacked(kingSquare)
-			} else {
+			isCheck := v.isSquareAttacked(kingSquare)
+			if res.Move.Piece.Type == pieceKing {
 				isCheck = v.isSquareAttacked(dest)
 			}
 
@@ -289,9 +287,9 @@ func (v *boardValidator) Check() ([]potentialMoves, error) {
 		}
 		if len(validMoves) == 0 {
 			v.game.emit("checkmate", data)
-		} else {
-			v.game.emit("check", data)
+			continue
 		}
+		v.game.emit("check", data)
 	}
 
 	return validMoves, nil
