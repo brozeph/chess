@@ -10,13 +10,14 @@ import (
 
 var notationRegex = regexp.MustCompile(`^[BKQNR]?[a-h]?[1-8]?[x-]?[a-h][1-8][+#]?$`)
 
+// clientStatus represents the state of the game at a certain point.
 type clientStatus struct {
-	Board        *Board
-	IsCheck      bool
-	IsCheckmate  bool
-	IsRepetition bool
-	IsStalemate  bool
-	NotatedMoves map[string]notationMove
+	Board        *Board                  // The current board state.
+	IsCheck      bool                    // True if the current player is in check.
+	IsCheckmate  bool                    // True if the current player is in checkmate.
+	IsRepetition bool                    // True if the current board state is a result of repetition.
+	IsStalemate  bool                    // True if the game is a stalemate.
+	NotatedMoves map[string]notationMove // A map of all valid moves in algebraic notation.
 }
 
 type notationMove struct {
@@ -94,10 +95,12 @@ func sanitizeNotation(n string, usePGN bool) string {
 	return clean
 }
 
+// AlgebraicClientOptions provides configuration options for an AlgebraicGameClient.
 type AlgebraicClientOptions struct {
-	PGN bool
+	PGN bool // PGN specifies whether to use PGN-style notation for castling (O-O) instead of (0-0).
 }
 
+// AlgebraicGameClient provides a client for interacting with a chess game using algebraic notation.
 type AlgebraicGameClient struct {
 	game         *Game
 	options      AlgebraicClientOptions
@@ -111,6 +114,10 @@ type AlgebraicGameClient struct {
 	emitter      eventEmitter
 }
 
+// CreateAlgebraicGameClient creates a new game client with a standard starting board.
+// It returns an error if the FEN string is invalid.
+// It accepts an option AlgebraicClientOptions. When not provided, PGN notation is not used
+// (castling notation appears as 0-0 instead of O-O, for example)
 func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameClient {
 	var o AlgebraicClientOptions
 	if len(opts) > 0 {
@@ -134,6 +141,10 @@ func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameCli
 	return client
 }
 
+// CreateAlgebraicGameClientFromFEN creates a new game client from a FEN string.
+// It returns an error if the FEN string is invalid.
+// It accepts an option AlgebraicClientOptions. When not provided, PGN notation is not used
+// (castling notation appears as 0-0 instead of O-O, for example)
 func CreateAlgebraicGameClientFromFEN(fen string, opts ...AlgebraicClientOptions) (*AlgebraicGameClient, error) {
 	if strings.TrimSpace(fen) == "" {
 		return nil, errors.New("FEN must be a non-empty string")
@@ -228,14 +239,14 @@ func (c *AlgebraicGameClient) bindGameEvents() {
 	})
 }
 
-func (c *AlgebraicGameClient) emit(event string, data interface{}) {
-	c.emitter.emit(event, data)
+func (c *AlgebraicGameClient) emit(ev string, d interface{}) {
+	c.emitter.emit(ev, d)
 }
 
-func (c *AlgebraicGameClient) notate(validMoves []potentialMoves) map[string]notationMove {
+func (c *AlgebraicGameClient) notate(mvs []potentialMoves) map[string]notationMove {
 	algebraic := map[string]notationMove{}
 
-	for _, vm := range validMoves {
+	for _, vm := range mvs {
 		src := vm.origin
 		if src.Piece == nil {
 			continue
@@ -266,7 +277,7 @@ func (c *AlgebraicGameClient) notate(validMoves []potentialMoves) map[string]not
 
 			switch src.Piece.Type {
 			case pieceBishop, pieceKnight, pieceQueen, pieceRook:
-				matches := getValidMovesByPieceType(src.Piece.Type, validMoves)
+				matches := getValidMovesByPieceType(src.Piece.Type, mvs)
 				prefix = src.Piece.Notation
 				if len(matches) > 1 {
 					prefix = getNotationPrefix(src, dest, matches)
@@ -317,8 +328,18 @@ func (c *AlgebraicGameClient) notate(validMoves []potentialMoves) map[string]not
 	return algebraic
 }
 
-func (c *AlgebraicGameClient) On(event string, handler func(interface{})) {
-	c.emitter.on(event, handler)
+// On registers an event handler for the given event.
+// The client supports the following events:
+//   - "move":      emitted after a piece has been moved. The handler receives a *moveResult.
+//   - "capture":   emitted when a piece is captured. The handler receives the captured *Piece.
+//   - "castle":    emitted when a castling move is performed. The handler receives the *moveResult.
+//   - "enPassant": emitted when an en passant capture occurs. The handler receives the captured *Piece.
+//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Piece.
+//   - "undo":      emitted after a move has been undone. The handler receives the undone *moveResult.
+//   - "check":     emitted when a player is put in check. The handler receives the Side that is in check.
+//   - "checkmate": emitted when a player is checkmated. The handler receives the Side that is in checkmate.
+func (c *AlgebraicGameClient) On(ev string, hndlr func(interface{})) {
+	c.emitter.on(ev, hndlr)
 }
 
 func (c *AlgebraicGameClient) update() error {
@@ -335,31 +356,35 @@ func (c *AlgebraicGameClient) update() error {
 	return nil
 }
 
+// CaptureHistory returns a slice of pieces that have been captured during the game.
 func (c *AlgebraicGameClient) CaptureHistory() []*Piece {
 	return c.game.CaptureHistory
 }
 
+// FEN returns the Forsyth-Edwards Notation (FEN) string for the current board state.
 func (c *AlgebraicGameClient) FEN() string {
 	return c.game.Board.FEN()
 }
 
-func (c *AlgebraicGameClient) Move(notation string, fuzzy bool) (*moveResult, error) {
-	if notation == "" {
+// Move attempts to make a move using algebraic notation.
+// If fuzzy is true, it will attempt to parse incomplete notations.
+func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
+	if not == "" {
 		return nil, errors.New("notation is invalid")
 	}
 
-	notation = sanitizeNotation(notation, c.options.PGN)
+	not = sanitizeNotation(not, c.options.PGN)
 
 	var promoPiece string
-	if len(notation) > 0 {
-		last := notation[len(notation)-1]
+	if len(not) > 0 {
+		last := not[len(not)-1]
 		if strings.ContainsRune("BNQR", rune(last)) {
 			promoPiece = string(last)
 		}
 	}
 
-	if moveDef, ok := c.notatedMoves[notation]; ok {
-		res, err := c.game.move(moveDef.Src, moveDef.Dest, notation)
+	if moveDef, ok := c.notatedMoves[not]; ok {
+		res, err := c.game.move(moveDef.Src, moveDef.Dest, not)
 		if err != nil {
 			return nil, err
 		}
@@ -391,15 +416,17 @@ func (c *AlgebraicGameClient) Move(notation string, fuzzy bool) (*moveResult, er
 		return res, nil
 	}
 
-	if notationRegex.MatchString(notation) && len(notation) > 1 && !fuzzy {
-		return c.Move(parseNotation(notation), true)
+	if notationRegex.MatchString(not) && len(not) > 1 && !fzzy {
+		return c.Move(parseNotation(not), true)
 	}
 
-	return nil, fmt.Errorf("notation is invalid (%s)", notation)
+	return nil, fmt.Errorf("notation is invalid (%s)", not)
 }
 
-func (c *AlgebraicGameClient) Status(force bool) (*clientStatus, error) {
-	if force {
+// Status returns the current status of the game.
+// Force is optional. If force is true, it will re-calculate all valid moves and game-end conditions.
+func (c *AlgebraicGameClient) Status(frc ...bool) (*clientStatus, error) {
+	if len(frc) > 0 && frc[0] {
 		if err := c.update(); err != nil {
 			return nil, err
 		}

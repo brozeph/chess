@@ -2,6 +2,8 @@ package chess
 
 import "errors"
 
+// pieceValidator is an internal helper to determine the potential moves for a single piece
+// based on its type and the rules of chess, without considering checks or other game-state constraints.
 type pieceValidator struct {
 	board            *Board
 	allowBackward    bool
@@ -13,6 +15,8 @@ type pieceValidator struct {
 	specialValidator func(v *pieceValidator, pm *potentialMoves)
 }
 
+// CreatePieceValidator initializes a new validator for a specific piece type on a given board.
+// It configures movement rules (e.g., diagonal, horizontal) and repetition counts based on the piece type.
 func CreatePieceValidator(pt pieceType, b *Board) *pieceValidator {
 	v := &pieceValidator{
 		board:     b,
@@ -53,6 +57,9 @@ func CreatePieceValidator(pt pieceType, b *Board) *pieceValidator {
 	return v
 }
 
+// Check calculates all potential destination squares for a piece at a given origin square.
+// It does not validate whether a move would result in the king being in check.
+// It returns a slice of valid destination squares or an error if the origin is invalid.
 func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 	if origin == nil || origin.Piece == nil || origin.Piece.Type != v.pieceType {
 		return nil, errors.New("piece is invalid")
@@ -120,6 +127,8 @@ func (v *pieceValidator) Check(origin *Square) ([]*Square, error) {
 	return ctx.destinationSquares, nil
 }
 
+// knightSpecial implements the special L-shaped move validation for a Knight.
+// It calculates the eight potential squares a knight can jump to.
 func knightSpecial(v *pieceValidator, pm *potentialMoves) {
 	candidates := []*Square{}
 
@@ -167,6 +176,12 @@ func knightSpecial(v *pieceValidator, pm *potentialMoves) {
 	}
 }
 
+// pawnSpecial implements the special move validation for a Pawn.
+// This includes:
+// - Standard single-square forward move.
+// - Initial two-square forward move.
+// - Diagonal captures.
+// - En passant captures.
 func pawnSpecial(v *pieceValidator, pm *potentialMoves) {
 	diagLeft := v.board.getNeighborSquare(pm.origin, NeighborBelowLeft)
 	diagRight := v.board.getNeighborSquare(pm.origin, NeighborBelowRight)
