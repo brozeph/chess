@@ -197,6 +197,27 @@ func readOpenings(pth string) ([]opening, error) {
 	return openings, nil
 }
 
+func writeOpenings(ops []opening) error {
+	// write updated openings to CSV file
+	f, err := os.Create(openingsCSV)
+	if err != nil {
+		return fmt.Errorf("error creating openings file: %w", err)
+	}
+	defer f.Close()
+
+	writer := csv.NewWriter(f)
+	defer writer.Flush()
+
+	for _, op := range ops {
+		err := writer.Write([]string{op.FEN, op.Sequence, op.Name})
+		if err != nil {
+			return fmt.Errorf("error writing openings file: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	// read in openings from CSV file
 	ops, err := readOpenings(openingsCSV)
@@ -206,12 +227,25 @@ func main() {
 	}
 
 	// process openings as needed
-	for _, op := range ops {
+	up := false
+	for i, op := range ops {
 		// if FEN is missing, convert sequence to FEN
 		if op.FEN == "" {
 			op.FEN = convertToFEN(op.Sequence)
+			fmt.Printf("Converted sequence in opening to FEN: %s, Sequence: %s, FEN: %s\n", op.Name, op.Sequence, op.FEN)
+			ops[i] = op
+			up = true
+		}
+	}
+
+	if up {
+		if err := writeOpenings(ops); err != nil {
+			fmt.Printf("Error writing openings: %v\n", err)
+			return
 		}
 
-		fmt.Printf("Opening: %s, Sequence: %s, FEN: %s\n", op.Name, op.Sequence, op.FEN)
+		fmt.Printf("Updated openings file: %s\n", openingsCSV)
 	}
+
+	fmt.Printf("Processed %d openings\n", len(ops))
 }
