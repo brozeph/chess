@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	chess "github.com/brozeph/chess/pkg"
+	chess "github.com/brozeph/chess"
 )
 
 func printBoard(b *chess.Board) {
