@@ -7,12 +7,19 @@ import (
 	"strings"
 )
 
+// Board represents the chess board and its state.
+// It contains all the squares and the last moved piece.
+// It can emit events for moves, captures, promotions, etc.
 type Board struct {
-	Squares        []*Square
+	// Squares is a slice of 64 squares representing the board.
+	Squares []*Square
+	// LastMovedPiece points to the piece that was last moved.
 	LastMovedPiece *Piece
 	emitter        eventEmitter
 }
 
+// CreateBoard initializes and returns a new Board with pieces in their standard
+// starting positions.
 func CreateBoard() *Board {
 	b := &Board{
 		Squares: make([]*Square, 0, 64),
@@ -62,6 +69,8 @@ func CreateBoard() *Board {
 	return b
 }
 
+// LoadBoard creates and returns a new Board from a Forsyth-Edwards Notation (FEN) string.
+// It returns an error if the FEN string is invalid.
 func LoadBoard(fen string) (*Board, error) {
 	parts := strings.Split(fen, " ")
 	if len(parts) == 0 {
@@ -136,6 +145,14 @@ func LoadBoard(fen string) (*Board, error) {
 	return b, nil
 }
 
+// on registers an event handler for a given board event.
+// The board supports the following events:
+//   - "move":      emitted after a piece has been moved. The handler receives a *moveEvent.
+//   - "capture":   emitted when a piece is captured. The handler receives the *moveEvent containing the captured piece.
+//   - "castle":    emitted when a castling move is performed. The handler receives the *moveEvent.
+//   - "enPassant": emitted when an en passant capture occurs. The handler receives the *moveEvent.
+//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Square.
+//   - "undo":      emitted after a move has been undone. The handler receives the undone *moveEvent.
 func (b *Board) on(event string, handler func(interface{})) {
 	b.emitter.on(event, handler)
 }
@@ -155,6 +172,7 @@ func (b *Board) indexOf(sq *Square) int {
 	return (sq.Rank-1)*8 + fileIdx
 }
 
+// GetSquare returns the square at the given file and rank.
 func (b *Board) GetSquare(file rune, rank int) *Square {
 	if rank < 1 || rank > 8 || file < 'a' || file > 'h' {
 		return nil
@@ -238,6 +256,7 @@ func (b *Board) getSquares(sd Side) []*Square {
 	return res
 }
 
+// FEN returns the Forsyth-Edwards Notation (FEN) string for the current board state.
 func (b *Board) FEN() string {
 	var fen strings.Builder
 	emptyCount := 0
@@ -271,6 +290,10 @@ func (b *Board) FEN() string {
 	return fen.String()
 }
 
+// Move performs a move on the board from a source square to a destination square.
+// If simulate is true, the move is not committed to the board's history and no events are emitted.
+// The returned moveResult contains an `undo` function that can be called to revert the move.
+// It returns an error if the move is invalid.
 func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*moveResult, error) {
 	if src == nil || dest == nil {
 		return nil, errors.New("source and destination squares are required")
@@ -377,6 +400,8 @@ func (b *Board) Move(src, dest *Square, simulate bool, notation string) (*moveRe
 	}, nil
 }
 
+// Promote replaces the piece on a given square with a new piece.
+// This is used for pawn promotion. It emits a "promote" event.
 func (b *Board) Promote(sq *Square, p *Piece) (*Square, error) {
 	if sq == nil {
 		return nil, errors.New("square is required for promotion")

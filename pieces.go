@@ -2,24 +2,32 @@ package chess
 
 import "strings"
 
+// pieceType is an enumeration representing the type of a chess piece.
 type pieceType int
 
 const (
-	pieceBishop pieceType = iota
-	pieceKing
-	pieceKnight
-	piecePawn
-	pieceQueen
-	pieceRook
+	pieceBishop pieceType = iota // A bishop.
+	pieceKing                    // A king.
+	pieceKnight                  // A knight.
+	piecePawn                    // A pawn.
+	pieceQueen                   // A queen.
+	pieceRook                    // A rook.
 )
 
+// Piece represents a single chess piece on the board.
 type Piece struct {
-	Type      pieceType
-	Side      Side
-	Notation  string
+	// Type is the type of the piece (e.g., Pawn, Rook, King).
+	Type pieceType
+	// Side is the color of the piece (White or Black).
+	Side Side
+	// Notation is the standard algebraic notation for the piece (e.g., "R" for Rook).
+	// Pawns have an empty string.
+	Notation string
+	// MoveCount tracks how many times the piece has moved. This is important for castling and pawn's first move.
 	MoveCount int
 }
 
+// newPiece is a factory function that creates and returns a new Piece.
 func newPiece(pt pieceType, sd Side) *Piece {
 	switch pt {
 	case pieceBishop:
@@ -39,6 +47,8 @@ func newPiece(pt pieceType, sd Side) *Piece {
 	}
 }
 
+// toFEN converts the piece to its Forsyth-Edwards Notation (FEN) character.
+// White pieces are uppercase (e.g., 'R'), and black pieces are lowercase (e.g., 'r').
 func (p *Piece) toFEN() string {
 	if p == nil {
 		return ""
@@ -67,6 +77,8 @@ func (p *Piece) toFEN() string {
 	return symbol
 }
 
+// AlgebraicSymbol returns the rune used to represent the piece in various notations.
+// White pieces are uppercase (e.g., 'P'), and black pieces are lowercase (e.g., 'p').
 func (p *Piece) AlgebraicSymbol() rune {
 	if p == nil {
 		return '.'
