@@ -111,11 +111,16 @@ type AlgebraicGameClient struct {
 	emitter      eventEmitter
 }
 
-func CreateAlgebraicGameClient(opts AlgebraicClientOptions) *AlgebraicGameClient {
+func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameClient {
+	var o AlgebraicClientOptions
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+
 	g := createGame()
 	client := &AlgebraicGameClient{
 		game:         g,
-		options:      opts,
+		options:      o,
 		notatedMoves: map[string]notationMove{},
 		validMoves:   []potentialMoves{},
 		validation:   CreateGameValidator(g),
@@ -129,9 +134,14 @@ func CreateAlgebraicGameClient(opts AlgebraicClientOptions) *AlgebraicGameClient
 	return client
 }
 
-func CreateAlgebraicGameClientFromFEN(fen string, opts AlgebraicClientOptions) (*AlgebraicGameClient, error) {
+func CreateAlgebraicGameClientFromFEN(fen string, opts ...AlgebraicClientOptions) (*AlgebraicGameClient, error) {
 	if strings.TrimSpace(fen) == "" {
 		return nil, errors.New("FEN must be a non-empty string")
+	}
+
+	var o AlgebraicClientOptions
+	if len(opts) > 0 {
+		o = opts[0]
 	}
 
 	loaded, err := LoadBoard(fen)
@@ -172,7 +182,7 @@ func CreateAlgebraicGameClientFromFEN(fen string, opts AlgebraicClientOptions) (
 
 	client := &AlgebraicGameClient{
 		game:         g,
-		options:      opts,
+		options:      o,
 		notatedMoves: map[string]notationMove{},
 		validMoves:   []potentialMoves{},
 		validation:   CreateGameValidator(g),
