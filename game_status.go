@@ -1,8 +1,8 @@
 package chess
 
-// gameStatus represents the state of the game at a certain point.
+// gameStatus represents the state of the game at a certain point in time.
 type gameStatus struct {
-	Board        *Board                  // The current board state.
+	Game         *Game                   // The current game state.
 	IsCheck      bool                    // True if the current player is in check.
 	IsCheckmate  bool                    // True if the current player is in checkmate.
 	IsRepetition bool                    // True if the current board state is a result of repetition.
@@ -11,10 +11,16 @@ type gameStatus struct {
 }
 
 // Side returns the side of the player who made the last move.
-// If no moves have been made, it defaults to sideWhite.
+// If no moves have been made, it defaults to sideWhite (unless this
+// state has been overridden for the game).
 func (s *gameStatus) Side() Side {
-	if s.Board.LastMovedPiece == nil {
-		return sideWhite
+	if s.Game.Board.LastMovedPiece == nil {
+		if s.Game.wf {
+			return sideWhite
+		}
+
+		return sideBlack
 	}
-	return s.Board.LastMovedPiece.Side
+
+	return s.Game.Board.LastMovedPiece.Side
 }

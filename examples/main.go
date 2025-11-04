@@ -60,7 +60,7 @@ func main() {
 		log.Fatalf("failed to evaluate position: %v", err)
 	}
 
-	printBoard(status.Board)
+	printBoard(status.Game.Board)
 	fmt.Printf("FEN: %s\n", client.FEN())
 	fmt.Printf("Check: %t  Checkmate: %t  Stalemate: %t  Repetition: %t\n",
 		status.IsCheck, status.IsCheckmate, status.IsStalemate, status.IsRepetition)
