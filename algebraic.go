@@ -419,14 +419,14 @@ func (c *AlgebraicGameClient) On(ev string, hndlr func(interface{})) {
 
 // Status returns the current status of the game.
 // If force is true, it will re-calculate all valid moves and game-end conditions.
-func (c *AlgebraicGameClient) Status(frc ...bool) (*gameStatus, error) {
+func (c *AlgebraicGameClient) Status(frc ...bool) (*GameStatus, error) {
 	if len(frc) > 0 && frc[0] {
 		if err := c.update(); err != nil {
 			return nil, err
 		}
 	}
 
-	status := &gameStatus{
+	status := &GameStatus{
 		Game:         c.game,
 		IsCheck:      c.isCheck,
 		IsCheckmate:  c.isCheckmate,

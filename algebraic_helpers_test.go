@@ -11,7 +11,7 @@ func mustMove(t *testing.T, client *AlgebraicGameClient, notation string) *moveR
 	return res
 }
 
-func mustStatus(t *testing.T, client *AlgebraicGameClient, force bool) *gameStatus {
+func mustStatus(t *testing.T, client *AlgebraicGameClient, force bool) *GameStatus {
 	t.Helper()
 	sts, err := client.Status(force)
 	if err != nil {
