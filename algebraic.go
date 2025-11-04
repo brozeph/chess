@@ -10,16 +10,6 @@ import (
 
 var notationRegex = regexp.MustCompile(`^[BKQNR]?[a-h]?[1-8]?[x-]?[a-h][1-8][+#]?$`)
 
-// clientStatus represents the state of the game at a certain point.
-type clientStatus struct {
-	Board        *Board                  // The current board state.
-	IsCheck      bool                    // True if the current player is in check.
-	IsCheckmate  bool                    // True if the current player is in checkmate.
-	IsRepetition bool                    // True if the current board state is a result of repetition.
-	IsStalemate  bool                    // True if the game is a stalemate.
-	NotatedMoves map[string]notationMove // A map of all valid moves in algebraic notation.
-}
-
 type notationMove struct {
 	Src  *Square
 	Dest *Square
@@ -391,7 +381,7 @@ func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
 
 		if promoPiece != "" {
 			var p *Piece
-			side := c.game.getCurrentSide().opponent()
+			side := c.game.getCurrentSide().Opponent()
 			switch promoPiece {
 			case "B":
 				p = newPiece(pieceBishop, side)
@@ -425,14 +415,14 @@ func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
 
 // Status returns the current status of the game.
 // Force is optional. If force is true, it will re-calculate all valid moves and game-end conditions.
-func (c *AlgebraicGameClient) Status(frc ...bool) (*clientStatus, error) {
+func (c *AlgebraicGameClient) Status(frc ...bool) (*gameStatus, error) {
 	if len(frc) > 0 && frc[0] {
 		if err := c.update(); err != nil {
 			return nil, err
 		}
 	}
 
-	status := &clientStatus{
+	status := &gameStatus{
 		Board:        c.game.Board,
 		IsCheck:      c.isCheck,
 		IsCheckmate:  c.isCheckmate,
