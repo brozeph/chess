@@ -2,28 +2,37 @@ package chess
 
 import "testing"
 
+const strtFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 func TestGetFEN(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	if got := client.FEN(); got != "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR" {
-		t.Fatalf("unexpected FEN %s", got)
+	exp := strtFEN
+	if got := client.FEN(); got != exp {
+		t.Fatalf("mismatch: \n got: %s\nwant: %s", got, exp)
 	}
 }
 
 func TestFromFENRespectsSideToMove(t *testing.T) {
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1"
+	fen := strtFEN
 	client, err := CreateAlgebraicGameClientFromFEN(fen, AlgebraicClientOptions{})
 	if err != nil {
 		t.Fatalf("fromFEN failed: %v", err)
 	}
 
-	expectedFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
-	if got := client.FEN(); got != expectedFEN {
-		t.Fatalf("board mismatch: got %s want %s", got, expectedFEN)
+	expFEN := strtFEN
+	if got := client.FEN(); got != expFEN {
+		t.Fatalf("board mismatch: \n got: %s\nwant: %s", got, expFEN)
 	}
 
-	if _, err := client.Move("e4", false); err == nil {
-		t.Fatalf("expected white move to fail")
+	// move two spaces with white pawn
+	if _, err := client.Move("e4", false); err != nil {
+		t.Fatalf("expected white move to succeed")
+	}
+
+	expFEN = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+	if got := client.FEN(); got != expFEN {
+		t.Fatalf("board mismatch: \n got: %s\nwant: %s", got, expFEN)
 	}
 
 	res := mustMove(t, client, "e5")

@@ -10,11 +10,6 @@ import (
 
 var notationRegex = regexp.MustCompile(`^[BKQNR]?[a-h]?[1-8]?[x-]?[a-h][1-8][+#]?$`)
 
-type notationMove struct {
-	Src  *Square
-	Dest *Square
-}
-
 func getValidMovesByPieceType(pt pieceType, validMoves []potentialMoves) []potentialMoves {
 	res := []potentialMoves{}
 	for _, mv := range validMoves {
@@ -92,22 +87,21 @@ type AlgebraicClientOptions struct {
 
 // AlgebraicGameClient provides a client for interacting with a chess game using algebraic notation.
 type AlgebraicGameClient struct {
+	emitter      eventEmitter
+	fen          string
 	game         *Game
-	options      AlgebraicClientOptions
 	isCheck      bool
 	isCheckmate  bool
 	isRepetition bool
 	isStalemate  bool
 	notatedMoves map[string]notationMove
+	options      AlgebraicClientOptions
 	validMoves   []potentialMoves
 	validation   *gameValidator
-	emitter      eventEmitter
 }
 
 // CreateAlgebraicGameClient creates a new game client with a standard starting board.
-// It returns an error if the FEN string is invalid.
-// It accepts an option AlgebraicClientOptions. When not provided, PGN notation is not used
-// (castling notation appears as 0-0 instead of O-O, for example)
+// It accepts optional AlgebraicClientOptions.
 func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameClient {
 	var o AlgebraicClientOptions
 	if len(opts) > 0 {
@@ -116,12 +110,12 @@ func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameCli
 
 	g := createGame()
 	client := &AlgebraicGameClient{
-		game:         g,
-		options:      o,
-		notatedMoves: map[string]notationMove{},
-		validMoves:   []potentialMoves{},
-		validation:   CreateGameValidator(g),
 		emitter:      newEventEmitter(),
+		game:         g,
+		notatedMoves: map[string]notationMove{},
+		options:      o,
+		validation:   CreateGameValidator(g),
+		validMoves:   []potentialMoves{},
 	}
 	client.bindGameEvents()
 	client.On("undo", func(interface{}) {
@@ -133,8 +127,6 @@ func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameCli
 
 // CreateAlgebraicGameClientFromFEN creates a new game client from a FEN string.
 // It returns an error if the FEN string is invalid.
-// It accepts an option AlgebraicClientOptions. When not provided, PGN notation is not used
-// (castling notation appears as 0-0 instead of O-O, for example)
 func CreateAlgebraicGameClientFromFEN(fen string, opts ...AlgebraicClientOptions) (*AlgebraicGameClient, error) {
 	if strings.TrimSpace(fen) == "" {
 		return nil, errors.New("FEN must be a non-empty string")
@@ -145,50 +137,62 @@ func CreateAlgebraicGameClientFromFEN(fen string, opts ...AlgebraicClientOptions
 		o = opts[0]
 	}
 
-	loaded, err := LoadBoard(fen)
+	// load the board state (piece positions) from the FEN
+	loaded, err := loadBoard(fen)
 	if err != nil {
 		return nil, err
 	}
 
-	g := createGame()
-	g.Board = loaded
-	g.Board.LastMovedPiece = nil
-	g.hookBoardEvents()
-
+	// process the remainder of the FEN string
 	parts := strings.Split(fen, " ")
+
+	// check the active color
 	active := "w"
 	if len(parts) > 1 {
 		active = parts[1]
 	}
 
-	baseSide := sideWhite
+	bs := sideWhite
 	if active == "b" {
-		baseSide = sideBlack
+		bs = sideBlack
 	}
 
-	whiteFirst := baseSide == sideWhite
+	// create a game container for history and event tracking
+	g := createGame(bs == sideWhite)
+	g.Board = loaded
+	g.Board.LastMovedPiece = nil
+	g.hookBoardEvents()
 
-	g.sideResolver = func(gm *Game) Side {
-		if len(gm.MoveHistory)%2 == 0 {
-			if whiteFirst {
-				return sideWhite
-			}
-			return sideBlack
-		}
-		if whiteFirst {
-			return sideBlack
-		}
-		return sideWhite
+	// track castling availability
+	if len(parts) > 2 {
+		g.cstl = parts[2]
+	}
+
+	// track en-passant square
+	if len(parts) > 3 {
+		g.enP = g.Board.getSquareByName(parts[3])
+	}
+
+	// track halfmove clock
+	if len(parts) > 4 {
+		g.hmc, _ = strconv.Atoi(parts[4])
+	}
+
+	// track fullmove number
+	if len(parts) > 5 {
+		g.fmn, _ = strconv.Atoi(parts[5])
 	}
 
 	client := &AlgebraicGameClient{
-		game:         g,
-		options:      o,
-		notatedMoves: map[string]notationMove{},
-		validMoves:   []potentialMoves{},
-		validation:   CreateGameValidator(g),
 		emitter:      newEventEmitter(),
+		fen:          fen,
+		game:         g,
+		notatedMoves: map[string]notationMove{},
+		options:      o,
+		validation:   CreateGameValidator(g),
+		validMoves:   []potentialMoves{},
 	}
+
 	client.bindGameEvents()
 	client.On("undo", func(interface{}) {
 		_ = client.update()
@@ -318,20 +322,6 @@ func (c *AlgebraicGameClient) notate(mvs []potentialMoves) map[string]notationMo
 	return algebraic
 }
 
-// On registers an event handler for the given event.
-// The client supports the following events:
-//   - "move":      emitted after a piece has been moved. The handler receives a *moveResult.
-//   - "capture":   emitted when a piece is captured. The handler receives the captured *Piece.
-//   - "castle":    emitted when a castling move is performed. The handler receives the *moveResult.
-//   - "enPassant": emitted when an en passant capture occurs. The handler receives the captured *Piece.
-//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Piece.
-//   - "undo":      emitted after a move has been undone. The handler receives the undone *moveResult.
-//   - "check":     emitted when a player is put in check. The handler receives the Side that is in check.
-//   - "checkmate": emitted when a player is checkmated. The handler receives the Side that is in checkmate.
-func (c *AlgebraicGameClient) On(ev string, hndlr func(interface{})) {
-	c.emitter.on(ev, hndlr)
-}
-
 func (c *AlgebraicGameClient) update() error {
 	result, err := c.validation.Check()
 	if err != nil {
@@ -353,7 +343,7 @@ func (c *AlgebraicGameClient) CaptureHistory() []*Piece {
 
 // FEN returns the Forsyth-Edwards Notation (FEN) string for the current board state.
 func (c *AlgebraicGameClient) FEN() string {
-	return c.game.Board.FEN()
+	return c.game.fen()
 }
 
 // Move attempts to make a move using algebraic notation.
@@ -413,8 +403,22 @@ func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
 	return nil, fmt.Errorf("notation is invalid (%s)", not)
 }
 
+// On registers an event handler for the given event.
+// The client supports the following events:
+//   - "move":      emitted after a piece has been moved. The handler receives a *moveResult.
+//   - "capture":   emitted when a piece is captured. The handler receives the captured *Piece.
+//   - "castle":    emitted when a castling move is performed. The handler receives the *moveResult.
+//   - "enPassant": emitted when an en passant capture occurs. The handler receives the captured *Piece.
+//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Piece.
+//   - "undo":      emitted after a move has been undone. The handler receives the undone *moveResult.
+//   - "check":     emitted when a player is put in check. The handler receives the Side that is in check.
+//   - "checkmate": emitted when a player is checkmated. The handler receives the Side that is in checkmate.
+func (c *AlgebraicGameClient) On(ev string, hndlr func(interface{})) {
+	c.emitter.on(ev, hndlr)
+}
+
 // Status returns the current status of the game.
-// Force is optional. If force is true, it will re-calculate all valid moves and game-end conditions.
+// If force is true, it will re-calculate all valid moves and game-end conditions.
 func (c *AlgebraicGameClient) Status(frc ...bool) (*gameStatus, error) {
 	if len(frc) > 0 && frc[0] {
 		if err := c.update(); err != nil {
@@ -423,7 +427,7 @@ func (c *AlgebraicGameClient) Status(frc ...bool) (*gameStatus, error) {
 	}
 
 	status := &gameStatus{
-		Board:        c.game.Board,
+		Game:         c.game,
 		IsCheck:      c.isCheck,
 		IsCheckmate:  c.isCheckmate,
 		IsRepetition: c.isRepetition,

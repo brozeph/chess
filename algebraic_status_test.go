@@ -47,7 +47,7 @@ func TestIssue71UndoRestoresStatus(t *testing.T) {
 	mustMove(t, client, "c5").Undo()
 
 	status := mustStatus(t, client, false)
-	if status.Board.LastMovedPiece == nil || status.Board.LastMovedPiece.Side != sideWhite {
+	if status.Game.Board.LastMovedPiece == nil || status.Game.Board.LastMovedPiece.Side != sideWhite {
 		t.Fatalf("expected last moved piece to be white")
 	}
 	if _, ok := status.NotatedMoves["c5"]; !ok {
