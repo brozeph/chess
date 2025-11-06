@@ -4,10 +4,10 @@ import "testing"
 
 func TestWhiteCastleLeftEvent(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("castle", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})
@@ -30,10 +30,10 @@ func TestWhiteCastleLeftEvent(t *testing.T) {
 
 func TestWhiteCastleLeftPGN(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{PGN: true})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("castle", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})
@@ -56,10 +56,10 @@ func TestWhiteCastleLeftPGN(t *testing.T) {
 
 func TestBlackCastleRightEvent(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("castle", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})
@@ -83,10 +83,10 @@ func TestBlackCastleRightEvent(t *testing.T) {
 
 func TestBlackCastleRightPGN(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{PGN: true})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("castle", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})

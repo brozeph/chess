@@ -1,38 +1,71 @@
 package chess
 
-type eventEmitter struct {
-	listeners map[string][]func(interface{})
+import "sync"
+
+type eventSubscriber struct {
+	ch  chan interface{}
+	ack chan struct{}
 }
 
-func newEventEmitter() eventEmitter {
-	return eventEmitter{
-		listeners: map[string][]func(interface{}){},
+func newEventSubscriber(handler func(any)) *eventSubscriber {
+	sub := &eventSubscriber{
+		ch:  make(chan interface{}),
+		ack: make(chan struct{}),
+	}
+
+	go func() {
+		for data := range sub.ch {
+			handler(data)
+			sub.ack <- struct{}{}
+		}
+	}()
+
+	return sub
+}
+
+type eventHub struct {
+	mu        sync.RWMutex
+	listeners map[string][]*eventSubscriber
+}
+
+func newEventHub() *eventHub {
+	return &eventHub{
+		listeners: make(map[string][]*eventSubscriber),
 	}
 }
 
-func (e *eventEmitter) on(event string, handler func(interface{})) {
-	if event == "" || handler == nil {
+func (h *eventHub) emit(e string, dta any) {
+	if h == nil || e == "" {
 		return
 	}
-	e.listeners[event] = append(e.listeners[event], handler)
+
+	h.mu.RLock()
+	subs := append([]*eventSubscriber(nil), h.listeners[e]...)
+	h.mu.RUnlock()
+
+	for _, sub := range subs {
+		sub.ch <- dta
+		<-sub.ack
+	}
 }
 
-func (e *eventEmitter) emit(event string, data interface{}) {
-	if event == "" {
+func (h *eventHub) on(e string, hndlr func(any)) {
+	if h == nil || e == "" || hndlr == nil {
 		return
 	}
-	handlers := e.listeners[event]
-	for _, handler := range handlers {
-		handler(data)
-	}
+
+	sub := newEventSubscriber(hndlr)
+	h.mu.Lock()
+	h.listeners[e] = append(h.listeners[e], sub)
+	h.mu.Unlock()
 }
 
-type kingThreatEvent struct {
+type KingThreatEvent struct {
 	AttackingSquare *Square
 	KingSquare      *Square
 }
 
-type moveEvent struct {
+type MoveEvent struct {
 	Algebraic              string
 	CapturedPiece          *Piece
 	Castle                 bool

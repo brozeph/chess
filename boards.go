@@ -15,7 +15,8 @@ type Board struct {
 	Squares []*Square
 	// LastMovedPiece points to the piece that was last moved.
 	LastMovedPiece *Piece
-	emitter        eventEmitter
+
+	ev *eventHub
 }
 
 // createBoard initializes and returns a new Board with pieces in their standard
@@ -23,16 +24,16 @@ type Board struct {
 func createBoard() *Board {
 	b := &Board{
 		Squares: make([]*Square, 0, 64),
-		emitter: newEventEmitter(),
+		ev:      newEventHub(),
 	}
 
 	for i := 0; i < 64; i++ {
-		file := "abcdefgh"[i%8]
-		rank := (i / 8) + 1
-		sq := newSquare(rune(file), rank)
+		f := "abcdefgh"[i%8]
+		r := (i / 8) + 1
+		sq := newSquare(rune(f), r)
 		b.Squares = append(b.Squares, sq)
 
-		switch rank {
+		switch r {
 		case 1:
 			switch i % 8 {
 			case 0, 7:
@@ -72,38 +73,39 @@ func createBoard() *Board {
 // loadBoard creates and returns a new Board from a Forsyth-Edwards Notation (FEN) string.
 // It returns an error if the FEN string is invalid.
 func loadBoard(fen string) (*Board, error) {
-	parts := strings.Split(fen, " ")
-	if len(parts) == 0 {
+	prts := strings.Split(fen, " ")
+	if len(prts) == 0 {
 		return nil, fmt.Errorf("invalid FEN: %s", fen)
 	}
 
-	ranks := strings.Split(parts[0], "/")
-	if len(ranks) != 8 {
+	rs := strings.Split(prts[0], "/")
+	if len(rs) != 8 {
 		return nil, fmt.Errorf("invalid FEN ranks: %s", fen)
 	}
 
 	b := &Board{
 		Squares: make([]*Square, 64),
-		emitter: newEventEmitter(),
+		ev:      newEventHub(),
 	}
-	for rankIdx, row := range ranks {
-		rank := 8 - rankIdx
-		file := 0
+
+	for ri, row := range rs {
+		r := 8 - ri
+		f := 0
 		for _, ch := range row {
 			if ch >= '1' && ch <= '8' {
 				for n := 0; n < int(ch-'0'); n++ {
-					idx := (rank-1)*8 + file
-					b.Squares[idx] = newSquare(rune("abcdefgh"[file]), rank)
-					file++
+					idx := (r-1)*8 + f
+					b.Squares[idx] = newSquare(rune("abcdefgh"[f]), r)
+					f++
 				}
 				continue
 			}
 
-			if file >= 8 {
+			if f >= 8 {
 				return nil, fmt.Errorf("invalid FEN row: %s", row)
 			}
 
-			sq := newSquare(rune("abcdefgh"[file]), rank)
+			sq := newSquare(rune("abcdefgh"[f]), r)
 			switch ch {
 			case 'p':
 				sq.Piece = newPiece(piecePawn, sideBlack)
@@ -133,11 +135,11 @@ func loadBoard(fen string) (*Board, error) {
 				return nil, fmt.Errorf("invalid FEN piece: %c", ch)
 			}
 
-			idx := (rank-1)*8 + file
+			idx := (r-1)*8 + f
 			b.Squares[idx] = sq
-			file++
+			f++
 		}
-		if file != 8 {
+		if f != 8 {
 			return nil, fmt.Errorf("invalid FEN row: %s", row)
 		}
 	}
@@ -145,53 +147,46 @@ func loadBoard(fen string) (*Board, error) {
 	return b, nil
 }
 
-func (b *Board) emit(event string, data interface{}) {
-	b.emitter.emit(event, data)
+func (b *Board) emit(event string, data any) {
+	if b == nil {
+		return
+	}
+
+	b.ev.emit(event, data)
 }
 
 // fenPiecePlacement returns the piece placement data for Forsyth-Edwards Notation
 func (b *Board) fenPiecePlacement() string {
 	var fen strings.Builder
-	emptyCount := 0
+	ec := 0
 
-	for rank := 8; rank >= 1; rank-- {
-		emptyCount = 0
-		for file := 'a'; file <= 'h'; file++ {
-			sq := b.GetSquare(file, rank)
+	for r := 8; r >= 1; r-- {
+		ec = 0
+		for f := 'a'; f <= 'h'; f++ {
+			sq := b.GetSquare(f, r)
 			if sq.Piece == nil {
-				emptyCount++
+				ec++
 				continue
 			}
 
-			if emptyCount > 0 {
-				fen.WriteString(strconv.Itoa(emptyCount))
-				emptyCount = 0
+			if ec > 0 {
+				fen.WriteString(strconv.Itoa(ec))
+				ec = 0
 			}
 
 			fen.WriteString(sq.Piece.toFEN())
 		}
 
-		if emptyCount > 0 {
-			fen.WriteString(strconv.Itoa(emptyCount))
+		if ec > 0 {
+			fen.WriteString(strconv.Itoa(ec))
 		}
 
-		if rank > 1 {
+		if r > 1 {
 			fen.WriteRune('/')
 		}
 	}
 
 	return fen.String()
-}
-
-func (b *Board) getSquareByName(nm string) *Square {
-	if len(nm) != 2 {
-		return nil
-	}
-
-	file := rune(nm[0])
-	rank := int(nm[1] - '0')
-
-	return b.GetSquare(file, rank)
 }
 
 func (b *Board) getNeighborSquare(sq *Square, n neighbor) *Square {
@@ -239,12 +234,23 @@ func (b *Board) getNeighborSquare(sq *Square, n neighbor) *Square {
 		return nil
 	}
 
-	target := idx + int(n)
-	if target < 0 || target >= len(b.Squares) {
+	trgt := idx + int(n)
+	if trgt < 0 || trgt >= len(b.Squares) {
 		return nil
 	}
 
-	return b.Squares[target]
+	return b.Squares[trgt]
+}
+
+func (b *Board) getSquareByName(nm string) *Square {
+	if len(nm) != 2 {
+		return nil
+	}
+
+	f := rune(nm[0])
+	r := int(nm[1] - '0')
+
+	return b.GetSquare(f, r)
 }
 
 func (b *Board) getSquares(sd Side) []*Square {
@@ -254,6 +260,7 @@ func (b *Board) getSquares(sd Side) []*Square {
 			res = append(res, sq)
 		}
 	}
+
 	return res
 }
 
@@ -261,11 +268,13 @@ func (b *Board) indexOf(sq *Square) int {
 	if sq == nil {
 		return -1
 	}
-	fileIdx := int(sq.File - 'a')
-	if fileIdx < 0 || fileIdx > 7 || sq.Rank < 1 || sq.Rank > 8 {
+
+	fi := int(sq.File - 'a')
+	if fi < 0 || fi > 7 || sq.Rank < 1 || sq.Rank > 8 {
 		return -1
 	}
-	return (sq.Rank-1)*8 + fileIdx
+
+	return (sq.Rank-1)*8 + fi
 }
 
 // on registers an event handler for a given board event.
@@ -276,19 +285,25 @@ func (b *Board) indexOf(sq *Square) int {
 //   - "enPassant": emitted when an en passant capture occurs. The handler receives the *moveEvent.
 //   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Square.
 //   - "undo":      emitted after a move has been undone. The handler receives the undone *moveEvent.
-func (b *Board) on(event string, handler func(interface{})) {
-	b.emitter.on(event, handler)
+func (b *Board) on(e string, hndlr func(any)) {
+	if b == nil {
+		return
+	}
+
+	b.ev.on(e, hndlr)
 }
 
 // GetSquare returns the square at the given file and rank.
-func (b *Board) GetSquare(fl rune, rnk int) *Square {
-	if rnk < 1 || rnk > 8 || fl < 'a' || fl > 'h' {
+func (b *Board) GetSquare(f rune, r int) *Square {
+	if r < 1 || r > 8 || f < 'a' || f > 'h' {
 		return nil
 	}
-	idx := (rnk-1)*8 + int(fl-'a')
+
+	idx := (r-1)*8 + int(f-'a')
 	if idx < 0 || idx >= len(b.Squares) {
 		return nil
 	}
+
 	return b.Squares[idx]
 }
 
@@ -310,7 +325,7 @@ func (b *Board) Move(src, dst *Square, sim bool, not ...string) (*moveResult, er
 		n = not[0]
 	}
 
-	mv := &moveEvent{
+	mv := &MoveEvent{
 		Algebraic:     n,
 		CapturedPiece: dst.Piece,
 		PostSquare:    dst,
@@ -327,32 +342,32 @@ func (b *Board) Move(src, dst *Square, sim bool, not ...string) (*moveResult, er
 	mv.EnPassant = mv.Piece.Type == piecePawn && mv.CapturedPiece == nil && dst.File != mv.PrevSquare.File
 
 	if mv.EnPassant {
-		captureSq := b.GetSquare(dst.File, mv.PrevSquare.Rank)
-		if captureSq != nil {
-			mv.CapturedPiece = captureSq.Piece
-			mv.EnPassantCaptureSquare = captureSq
-			captureSq.Piece = nil
+		cs := b.GetSquare(dst.File, mv.PrevSquare.Rank)
+		if cs != nil {
+			mv.CapturedPiece = cs.Piece
+			mv.EnPassantCaptureSquare = cs
+			cs.Piece = nil
 		}
 	}
 
 	if mv.Castle {
-		rookSource := b.GetSquare('a', dst.Rank)
-		rookDest := b.GetSquare('d', dst.Rank)
+		rs := b.GetSquare('a', dst.Rank)
+		rd := b.GetSquare('d', dst.Rank)
 		if dst.File == 'g' {
-			rookSource = b.GetSquare('h', dst.Rank)
-			rookDest = b.GetSquare('f', dst.Rank)
+			rs = b.GetSquare('h', dst.Rank)
+			rd = b.GetSquare('f', dst.Rank)
 		}
 
-		if rookSource == nil || rookSource.Piece == nil {
+		if rs == nil || rs.Piece == nil {
 			mv.Castle = false
 		}
 
 		if mv.Castle {
-			mv.RookSource = rookSource
-			mv.RookDestination = rookDest
-			if rookDest != nil {
-				rookDest.Piece = rookSource.Piece
-				rookSource.Piece = nil
+			mv.RookSource = rs
+			mv.RookDestination = rd
+			if rd != nil {
+				rd.Piece = rs.Piece
+				rs.Piece = nil
 			}
 		}
 	}

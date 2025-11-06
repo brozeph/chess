@@ -87,7 +87,6 @@ type AlgebraicClientOptions struct {
 
 // AlgebraicGameClient provides a client for interacting with a chess game using algebraic notation.
 type AlgebraicGameClient struct {
-	emitter      eventEmitter
 	fen          string
 	game         *Game
 	isCheck      bool
@@ -98,6 +97,8 @@ type AlgebraicGameClient struct {
 	options      AlgebraicClientOptions
 	validMoves   []potentialMoves
 	validation   *gameValidator
+
+	events *eventHub
 }
 
 // CreateAlgebraicGameClient creates a new game client with a standard starting board.
@@ -110,12 +111,12 @@ func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameCli
 
 	g := createGame()
 	client := &AlgebraicGameClient{
-		emitter:      newEventEmitter(),
 		game:         g,
 		notatedMoves: map[string]notationMove{},
 		options:      o,
 		validation:   CreateGameValidator(g),
 		validMoves:   []potentialMoves{},
+		events:       newEventHub(),
 	}
 	client.bindGameEvents()
 	client.On("undo", func(interface{}) {
@@ -184,13 +185,13 @@ func CreateAlgebraicGameClientFromFEN(fen string, opts ...AlgebraicClientOptions
 	}
 
 	client := &AlgebraicGameClient{
-		emitter:      newEventEmitter(),
 		fen:          fen,
 		game:         g,
 		notatedMoves: map[string]notationMove{},
 		options:      o,
 		validation:   CreateGameValidator(g),
 		validMoves:   []potentialMoves{},
+		events:       newEventHub(),
 	}
 
 	client.bindGameEvents()
@@ -233,8 +234,12 @@ func (c *AlgebraicGameClient) bindGameEvents() {
 	})
 }
 
-func (c *AlgebraicGameClient) emit(ev string, d interface{}) {
-	c.emitter.emit(ev, d)
+func (c *AlgebraicGameClient) emit(ev string, d any) {
+	if c == nil {
+		return
+	}
+
+	c.events.emit(ev, d)
 }
 
 func (c *AlgebraicGameClient) notate(mvs []potentialMoves) map[string]notationMove {
@@ -405,16 +410,20 @@ func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
 
 // On registers an event handler for the given event.
 // The client supports the following events:
-//   - "move":      emitted after a piece has been moved. The handler receives a *moveResult.
-//   - "capture":   emitted when a piece is captured. The handler receives the captured *Piece.
-//   - "castle":    emitted when a castling move is performed. The handler receives the *moveResult.
-//   - "enPassant": emitted when an en passant capture occurs. The handler receives the captured *Piece.
-//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Piece.
-//   - "undo":      emitted after a move has been undone. The handler receives the undone *moveResult.
-//   - "check":     emitted when a player is put in check. The handler receives the Side that is in check.
-//   - "checkmate": emitted when a player is checkmated. The handler receives the Side that is in checkmate.
-func (c *AlgebraicGameClient) On(ev string, hndlr func(interface{})) {
-	c.emitter.on(ev, hndlr)
+//   - "move":      emitted after a piece has been moved. The handler receives a *MoveEvent.
+//   - "capture":   emitted when a piece is captured. The handler receives a *MoveEvent.
+//   - "castle":    emitted when a castling move is performed. The handler receives a *MoveEvent.
+//   - "enPassant": emitted when an en passant capture occurs. The handler receives a *MoveEvent.
+//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Square.
+//   - "undo":      emitted after a move has been undone. The handler receives the undone *MoveEvent.
+//   - "check":     emitted when a player is put in check. The handler receives a *KingThreatEvent.
+//   - "checkmate": emitted when a player is checkmated. The handler receives a *KingThreatEvent.
+func (c *AlgebraicGameClient) On(ev string, hndlr func(any)) {
+	if c == nil {
+		return
+	}
+
+	c.events.on(ev, hndlr)
 }
 
 // Status returns the current status of the game.
