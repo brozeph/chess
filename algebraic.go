@@ -353,7 +353,7 @@ func (c *AlgebraicGameClient) FEN() string {
 
 // Move attempts to make a move using algebraic notation.
 // If fuzzy is true, it will attempt to parse incomplete notations.
-func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
+func (c *AlgebraicGameClient) Move(not string) (*moveResult, error) {
 	if not == "" {
 		return nil, errors.New("notation is invalid")
 	}
@@ -399,10 +399,6 @@ func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
 		}
 
 		return res, nil
-	}
-
-	if notationRegex.MatchString(not) && len(not) > 1 && !fzzy {
-		return c.Move(parseNotation(not), true)
 	}
 
 	return nil, fmt.Errorf("notation is invalid (%s)", not)

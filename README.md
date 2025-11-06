@@ -5,7 +5,7 @@ It parses and validates moves, tracks rich game state, and exposes an event-driv
 
 ## Featuring
 
-- **Notation-first game play** – list every legal move in algebraic notation, accept fuzzy algebraic input, and surface promotion choices.
+- **Notation-first game play** – list every legal move in algebraic notation, accepts algebraic input and surface promotion choices.
 - **Robust state inspection** – detect check, checkmate, stalemate, and threefold repetition while keeping a complete capture and move history.
 - **Undo-friendly move execution** – every applied move returns an undo handle and updates castling rights, en passant targets, and move counters.
 - **FEN integration** – load games from Forsyth–Edwards Notation, emit FEN snapshots after every move, or explore alternate continuations.
@@ -92,7 +92,7 @@ The `NotatedMoves` map is keyed by algebraic notation and each entry exposes the
 ## Making and Undoing Moves
 
 ```go
-result, err := client.Move("e4", false)
+result, err := client.Move("e4")
 if err != nil {
  log.Fatalf("illegal move: %v", err)
 }
@@ -105,7 +105,6 @@ fmt.Printf("FEN after move: %s\n", client.FEN())
 result.Undo()
 ```
 
-- Pass `false` for the `fuzzy` parameter to require exact algebraic notation.  
 - Promotions can be specified by suffixing the desired piece (`e8=Q`, `exd8N`, etc.).  
 - `result.Move` gives full context including castling, en passant, captured piece, and rook movement when appropriate.
 

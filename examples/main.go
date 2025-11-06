@@ -49,7 +49,7 @@ func main() {
 
 	if movesArg != "" {
 		for _, mv := range strings.Fields(movesArg) {
-			if _, err := client.Move(mv, false); err != nil {
+			if _, err := client.Move(mv); err != nil {
 				log.Fatalf("failed to apply move %s: %v", mv, err)
 			}
 		}
