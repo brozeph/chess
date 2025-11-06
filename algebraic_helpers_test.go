@@ -4,7 +4,7 @@ import "testing"
 
 func mustMove(t *testing.T, client *AlgebraicGameClient, notation string) *moveResult {
 	t.Helper()
-	res, err := client.Move(notation, false)
+	res, err := client.Move(notation)
 	if err != nil {
 		t.Fatalf("move %s failed: %v", notation, err)
 	}

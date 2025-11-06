@@ -123,7 +123,7 @@ func TestAmbiguousNotationThrows(t *testing.T) {
 		mustMove(t, client, mv)
 	}
 
-	if _, err := client.Move("Rh3", false); err == nil {
+	if _, err := client.Move("Rh3"); err == nil {
 		t.Fatalf("expected ambiguous notation error")
 	}
 }
@@ -131,10 +131,10 @@ func TestAmbiguousNotationThrows(t *testing.T) {
 func TestInvalidNotationThrows(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
 
-	if _, err := client.Move("h6", false); err == nil {
+	if _, err := client.Move("h6"); err == nil {
 		t.Fatalf("expected move error for h6")
 	}
-	if _, err := client.Move("z9", false); err == nil {
+	if _, err := client.Move("z9"); err == nil {
 		t.Fatalf("expected move error for z9")
 	}
 }

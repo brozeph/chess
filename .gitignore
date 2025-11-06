@@ -33,3 +33,4 @@ go.work.sum
 
 data/*.bak
 test-data.md
+chess-cli

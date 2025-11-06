@@ -87,7 +87,6 @@ type AlgebraicClientOptions struct {
 
 // AlgebraicGameClient provides a client for interacting with a chess game using algebraic notation.
 type AlgebraicGameClient struct {
-	emitter      eventEmitter
 	fen          string
 	game         *Game
 	isCheck      bool
@@ -98,6 +97,8 @@ type AlgebraicGameClient struct {
 	options      AlgebraicClientOptions
 	validMoves   []potentialMoves
 	validation   *gameValidator
+
+	events *eventHub
 }
 
 // CreateAlgebraicGameClient creates a new game client with a standard starting board.
@@ -110,12 +111,12 @@ func CreateAlgebraicGameClient(opts ...AlgebraicClientOptions) *AlgebraicGameCli
 
 	g := createGame()
 	client := &AlgebraicGameClient{
-		emitter:      newEventEmitter(),
 		game:         g,
 		notatedMoves: map[string]notationMove{},
 		options:      o,
 		validation:   CreateGameValidator(g),
 		validMoves:   []potentialMoves{},
+		events:       newEventHub(),
 	}
 	client.bindGameEvents()
 	client.On("undo", func(interface{}) {
@@ -184,13 +185,13 @@ func CreateAlgebraicGameClientFromFEN(fen string, opts ...AlgebraicClientOptions
 	}
 
 	client := &AlgebraicGameClient{
-		emitter:      newEventEmitter(),
 		fen:          fen,
 		game:         g,
 		notatedMoves: map[string]notationMove{},
 		options:      o,
 		validation:   CreateGameValidator(g),
 		validMoves:   []potentialMoves{},
+		events:       newEventHub(),
 	}
 
 	client.bindGameEvents()
@@ -233,8 +234,12 @@ func (c *AlgebraicGameClient) bindGameEvents() {
 	})
 }
 
-func (c *AlgebraicGameClient) emit(ev string, d interface{}) {
-	c.emitter.emit(ev, d)
+func (c *AlgebraicGameClient) emit(ev string, d any) {
+	if c == nil {
+		return
+	}
+
+	c.events.emit(ev, d)
 }
 
 func (c *AlgebraicGameClient) notate(mvs []potentialMoves) map[string]notationMove {
@@ -347,32 +352,58 @@ func (c *AlgebraicGameClient) FEN() string {
 }
 
 // Move attempts to make a move using algebraic notation.
-// If fuzzy is true, it will attempt to parse incomplete notations.
-func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
-	if not == "" {
+func (c *AlgebraicGameClient) Move(ntn string) (*moveResult, error) {
+	if ntn == "" {
 		return nil, errors.New("notation is invalid")
 	}
 
-	not = sanitizeNotation(not, c.options.PGN)
+	origNtn := ntn
+	ntn = sanitizeNotation(ntn, c.options.PGN)
 
-	var promoPiece string
-	if len(not) > 0 {
-		last := not[len(not)-1]
-		if strings.ContainsRune("BNQR", rune(last)) {
-			promoPiece = string(last)
+	var prmP string
+	if len(ntn) > 0 {
+		p := ntn[len(ntn)-1]
+		if strings.ContainsRune("BNQR", rune(p)) {
+			prmP = string(p)
 		}
 	}
 
-	if moveDef, ok := c.notatedMoves[not]; ok {
-		res, err := c.game.move(moveDef.Src, moveDef.Dest, not)
+	// Fallback for verbose notations like "Nb1c3" when "Nc3" is expected.
+	// If the direct lookup fails, try to parse it.
+	if _, ok := c.notatedMoves[ntn]; !ok && len(ntn) >= 4 {
+		// A piece notation (e.g., N, B, R, Q, K) is one character.
+		// A pawn move would be something like e2e4, which is also 4 characters.
+		p := ""
+		ofs := 0
+		if strings.ContainsRune("NBRQK", rune(ntn[0])) {
+			p = string(ntn[0])
+			ofs = 1
+		}
+
+		if len(ntn) >= ofs+4 {
+			srcN := ntn[ofs : ofs+2]
+			dstN := ntn[ofs+2 : ofs+4]
+
+			// Find the corresponding standard notation move
+			for k, mv := range c.notatedMoves {
+				if mv.Src.name() == srcN && mv.Dest.name() == dstN && strings.HasPrefix(k, p) {
+					ntn = k // Found it, use the standard notation
+					break
+				}
+			}
+		}
+	}
+
+	if mv, ok := c.notatedMoves[ntn]; ok {
+		res, err := c.game.move(mv.Src, mv.Dest, ntn)
 		if err != nil {
 			return nil, err
 		}
 
-		if promoPiece != "" {
+		if prmP != "" {
 			var p *Piece
 			side := c.game.getCurrentSide().Opponent()
-			switch promoPiece {
+			switch prmP {
 			case "B":
 				p = newPiece(pieceBishop, side)
 			case "N":
@@ -396,25 +427,25 @@ func (c *AlgebraicGameClient) Move(not string, fzzy bool) (*moveResult, error) {
 		return res, nil
 	}
 
-	if notationRegex.MatchString(not) && len(not) > 1 && !fzzy {
-		return c.Move(parseNotation(not), true)
-	}
-
-	return nil, fmt.Errorf("notation is invalid (%s)", not)
+	return nil, fmt.Errorf("notation is invalid (%s)", origNtn)
 }
 
 // On registers an event handler for the given event.
 // The client supports the following events:
-//   - "move":      emitted after a piece has been moved. The handler receives a *moveResult.
-//   - "capture":   emitted when a piece is captured. The handler receives the captured *Piece.
-//   - "castle":    emitted when a castling move is performed. The handler receives the *moveResult.
-//   - "enPassant": emitted when an en passant capture occurs. The handler receives the captured *Piece.
-//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Piece.
-//   - "undo":      emitted after a move has been undone. The handler receives the undone *moveResult.
-//   - "check":     emitted when a player is put in check. The handler receives the Side that is in check.
-//   - "checkmate": emitted when a player is checkmated. The handler receives the Side that is in checkmate.
-func (c *AlgebraicGameClient) On(ev string, hndlr func(interface{})) {
-	c.emitter.on(ev, hndlr)
+//   - "move":      emitted after a piece has been moved. The handler receives a *MoveEvent.
+//   - "capture":   emitted when a piece is captured. The handler receives a *MoveEvent.
+//   - "castle":    emitted when a castling move is performed. The handler receives a *MoveEvent.
+//   - "enPassant": emitted when an en passant capture occurs. The handler receives a *MoveEvent.
+//   - "promote":   emitted when a pawn is promoted. The handler receives the promoted *Square.
+//   - "undo":      emitted after a move has been undone. The handler receives the undone *MoveEvent.
+//   - "check":     emitted when a player is put in check. The handler receives a *KingThreatEvent.
+//   - "checkmate": emitted when a player is checkmated. The handler receives a *KingThreatEvent.
+func (c *AlgebraicGameClient) On(ev string, hndlr func(any)) {
+	if c == nil {
+		return
+	}
+
+	c.events.on(ev, hndlr)
 }
 
 // Status returns the current status of the game.

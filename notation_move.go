@@ -54,7 +54,7 @@ func (nm *notationMove) FEN(fen string) (string, error) {
 		return "", fmt.Errorf("move from %s to %s is not valid for the given FEN", nm.Src.name(), nm.Dest.name())
 	}
 
-	_, err = ac.Move(not, false)
+	_, err = ac.Move(not)
 	if err != nil {
 		return "", fmt.Errorf("failed to apply move %s: %w", not, err)
 	}

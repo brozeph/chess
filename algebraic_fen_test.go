@@ -29,7 +29,7 @@ func TestFromFENRespectsSideToMove(t *testing.T) {
 	}
 
 	// move two spaces with white pawn
-	if _, err := client.Move("e4", false); err != nil {
+	if _, err := client.Move("e4"); err != nil {
 		t.Fatalf("expected white move to succeed")
 	}
 

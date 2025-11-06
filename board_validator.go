@@ -281,10 +281,11 @@ func (v *boardValidator) Check() ([]potentialMoves, error) {
 
 	attackers := v.findAttackers(kingSquare)
 	for _, attacker := range attackers {
-		data := kingThreatEvent{
+		data := &KingThreatEvent{
 			AttackingSquare: attacker.square,
 			KingSquare:      kingSquare,
 		}
+
 		if len(validMoves) == 0 {
 			v.game.emit("checkmate", data)
 			continue

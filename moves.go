@@ -1,7 +1,7 @@
 package chess
 
 type moveResult struct {
-	Move *moveEvent
+	Move *MoveEvent
 	undo func()
 }
 

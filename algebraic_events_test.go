@@ -4,10 +4,10 @@ import "testing"
 
 func TestMoveEventTriggered(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("move", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})
@@ -22,10 +22,10 @@ func TestMoveEventTriggered(t *testing.T) {
 
 func TestCaptureEvent(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("capture", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})
@@ -68,11 +68,11 @@ func TestPromotionEvent(t *testing.T) {
 
 func TestIssue23CheckEvent(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
-	var event kingThreatEvent
+	var event *KingThreatEvent
 	triggered := false
 
 	client.On("check", func(data interface{}) {
-		if ev, ok := data.(kingThreatEvent); ok {
+		if ev, ok := data.(*KingThreatEvent); ok {
 			event = ev
 			triggered = true
 		}
@@ -104,10 +104,10 @@ func TestIssue23CheckEvent(t *testing.T) {
 
 func TestIssue53EnPassantEvent(t *testing.T) {
 	client := CreateAlgebraicGameClient(AlgebraicClientOptions{})
-	var events []*moveEvent
+	var events []*MoveEvent
 
 	client.On("enPassant", func(data interface{}) {
-		if mv, ok := data.(*moveEvent); ok {
+		if mv, ok := data.(*MoveEvent); ok {
 			events = append(events, mv)
 		}
 	})

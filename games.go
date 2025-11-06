@@ -16,14 +16,14 @@ type Game struct {
 	// CaptureHistory is a list of pieces that have been captured.
 	CaptureHistory []*Piece
 	// MoveHistory is a chronological record of all moves made in the game.
-	MoveHistory []*moveEvent
+	MoveHistory []*MoveEvent
 
-	cstl  string
-	emttr eventEmitter
-	enP   *Square
-	hmc   int
-	fmn   int
-	wf    bool
+	cstl string
+	enP  *Square
+	ev   *eventHub
+	hmc  int
+	fmn  int
+	wf   bool
 }
 
 // createGame initializes a new Game with a standard starting board and hooks up board events.
@@ -31,9 +31,9 @@ func createGame(wf ...bool) *Game {
 	g := &Game{
 		Board:          createBoard(),
 		CaptureHistory: []*Piece{},
-		MoveHistory:    []*moveEvent{},
+		MoveHistory:    []*MoveEvent{},
 		cstl:           "KQkq", // default is both Kings can castle King and Queen side
-		emttr:          newEventEmitter(),
+		ev:             newEventHub(),
 		fmn:            1,    // default is first move
 		wf:             true, // default is white moves first
 	}
@@ -50,7 +50,11 @@ func createGame(wf ...bool) *Game {
 
 // emit triggers a game event with the given data.
 func (g *Game) emit(event string, data interface{}) {
-	g.emttr.emit(event, data)
+	if g == nil {
+		return
+	}
+
+	g.ev.emit(event, data)
 }
 
 func (g *Game) fen() string {
@@ -152,7 +156,7 @@ func (g *Game) getHashCode() string {
 // It bubbles up board-level events (like move, capture, etc.) to the game level.
 func (g *Game) hookBoardEvents() {
 	g.Board.on("move", func(data interface{}) {
-		mv, ok := data.(*moveEvent)
+		mv, ok := data.(*MoveEvent)
 		if !ok || mv == nil {
 			return
 		}
@@ -178,7 +182,7 @@ func (g *Game) hookBoardEvents() {
 	})
 
 	g.Board.on("undo", func(data interface{}) {
-		mv, ok := data.(*moveEvent)
+		mv, ok := data.(*MoveEvent)
 		if !ok || mv == nil {
 			return
 		}
@@ -211,8 +215,12 @@ func (g *Game) move(src, dest *Square, notation string) (*moveResult, error) {
 }
 
 // on registers an event handler for a given game event.
-func (g *Game) on(event string, handler func(interface{})) {
-	g.emttr.on(event, handler)
+func (g *Game) on(e string, hndlr func(any)) {
+	if g == nil {
+		return
+	}
+
+	g.ev.on(e, hndlr)
 }
 
 // promote is a wrapper around Board.Promote that handles pawn promotion.
@@ -230,7 +238,7 @@ func (g *Game) promote(sq *Square, p *Piece) (*Square, error) {
 }
 
 // recordMove adds a move to the game's history and updates the capture history if a piece was taken.
-func (g *Game) recordMove(mv *moveEvent) {
+func (g *Game) recordMove(mv *MoveEvent) {
 	if mv == nil {
 		return
 	}
