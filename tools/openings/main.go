@@ -14,29 +14,32 @@ const (
 )
 
 type opening struct {
-	FEN      string
-	Name     string
-	Sequence string
+	Moves        string
+	Name         string
+	ResultFEN    string
+	SequenceFENs []string
 }
 
-func convertToFEN(seq string) string {
+func convertToFEN(mvs string) []string {
 	c := chess.CreateAlgebraicGameClient()
 
 	// break the sequence into moves (format is 1 e4 e5 2 Nf3 Nc6 ...)
-	prts := strings.Fields(seq)
+	trns := strings.Fields(mvs)
+	fens := []string{}
 
-	for i, prt := range prts {
-		// skip move numbers (the first in a sequence of 3 parts)
+	for i, trn := range trns {
+		// skip move numbers (the first char in a sequence of 3 parts "# white black")
 		if i%3 == 0 {
-			fmt.Print("processing move number:", prt, "\n")
+			fmt.Print("processing turn number:", trn, "\n")
 			continue
 		}
 
 		// process moves here to build FEN (not implemented)
-		c.Move(prt)
+		c.Move(trn)
+		fens = append(fens, c.FEN())
 	}
 
-	return c.FEN()
+	return fens
 }
 
 func readOpenings(pth string) ([]opening, error) {
@@ -54,13 +57,19 @@ func readOpenings(pth string) ([]opening, error) {
 	}
 
 	var openings []opening
-	for _, record := range records {
+	for i, record := range records {
+		// skip header row
+		if i == 0 {
+			continue
+		}
+
 		// handle both 2 and 3 column formats
-		if len(record) == 3 {
+		if len(record) == 4 {
 			openings = append(openings, opening{
-				FEN:      record[0],
-				Name:     record[2],
-				Sequence: record[1],
+				Moves:        record[0],
+				Name:         record[1],
+				ResultFEN:    record[2],
+				SequenceFENs: strings.Split(record[3], ","),
 			})
 
 			continue
@@ -68,8 +77,8 @@ func readOpenings(pth string) ([]opening, error) {
 
 		if len(record) == 2 {
 			openings = append(openings, opening{
-				Name:     record[1],
-				Sequence: record[0],
+				Moves: record[0],
+				Name:  record[1],
 			})
 
 			continue
@@ -90,8 +99,14 @@ func writeOpenings(ops []opening) error {
 	writer := csv.NewWriter(f)
 	defer writer.Flush()
 
+	// write header row
+	if err := writer.Write([]string{"Moves", "Name", "ResultFEN", "SequenceFENs"}); err != nil {
+		return fmt.Errorf("error writing header row: %w", err)
+	}
+
+	// write each opening
 	for _, op := range ops {
-		err := writer.Write([]string{op.FEN, op.Sequence, op.Name})
+		err := writer.Write([]string{op.Moves, op.Name, op.ResultFEN, strings.Join(op.SequenceFENs, ",")})
 		if err != nil {
 			return fmt.Errorf("error writing openings file: %w", err)
 		}
@@ -112,9 +127,10 @@ func main() {
 	up := false
 	for i, op := range ops {
 		// if FEN is missing, convert sequence to FEN
-		if op.FEN == "" {
-			op.FEN = convertToFEN(op.Sequence)
-			fmt.Printf("Converted sequence in opening to FEN: %s, Sequence: %s, FEN: %s\n", op.Name, op.Sequence, op.FEN)
+		if len(op.SequenceFENs) == 0 {
+			op.SequenceFENs = convertToFEN(op.Moves)
+			op.ResultFEN = op.SequenceFENs[len(op.SequenceFENs)-1]
+			fmt.Printf("Converted sequence in opening to FEN: %s, Sequence: %s, FEN: %s\n", op.Name, op.Moves, op.ResultFEN)
 			ops[i] = op
 			up = true
 		}
