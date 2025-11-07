@@ -63,7 +63,7 @@ func readOpenings(pth string) ([]opening, error) {
 			continue
 		}
 
-		// handle both 2 and 3 column formats
+		// handle both 2 and 4 column formats (we'll fix 2 columns later)
 		if len(record) == 4 {
 			openings = append(openings, opening{
 				Moves:        record[0],
