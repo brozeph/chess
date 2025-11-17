@@ -3,12 +3,9 @@ package chess
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 )
-
-var notationRegex = regexp.MustCompile(`^[BKQNR]?[a-h]?[1-8]?[x-]?[a-h][1-8][+#]?$`)
 
 func getValidMovesByPieceType(pt pieceType, validMoves []potentialMoves) []potentialMoves {
 	res := []potentialMoves{}
@@ -43,25 +40,6 @@ func getNotationPrefix(src *Square, dest *Square, moves []potentialMoves) string
 	}
 
 	return prefix
-}
-
-func parseNotation(notation string) string {
-	if len(notation) < 2 {
-		return ""
-	}
-
-	dest := notation[len(notation)-2:]
-	captureRegex := regexp.MustCompile(`^[a-h]x[a-h][1-8]$`)
-
-	if len(notation) > 2 && captureRegex.MatchString(notation) {
-		return dest
-	}
-
-	if len(notation) > 2 {
-		return notation[:1] + dest
-	}
-
-	return ""
 }
 
 func sanitizeNotation(n string, usePGN bool) string {
