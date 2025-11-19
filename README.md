@@ -68,7 +68,7 @@ func main() {
 
 ## Using the Opening Library
 
-The package ships with a curated ECO-backed opening database (`data/openings.csv`). Load it once and iterate or search:
+The package ships with a curated ECO-backed opening database (`data/openings.csv`). The CSV is embedded into the module... load it once and iterate or search:
 
 ```go
 ol, err := chess.CreateOpeningsLibrary()
