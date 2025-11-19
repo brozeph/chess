@@ -14,6 +14,7 @@ const (
 )
 
 type opening struct {
+	ECO          string
 	Moves        string
 	Name         string
 	ResultFEN    string
@@ -63,25 +64,29 @@ func readOpenings(pth string) ([]opening, error) {
 			continue
 		}
 
-		// handle both 2 and 4 column formats (we'll fix 2 columns later)
-		if len(record) == 4 {
+		// handle multiple column formats (legacy support)
+		switch len(record) {
+		case 5:
+			openings = append(openings, opening{
+				Moves:        record[0],
+				ECO:          record[1],
+				Name:         record[2],
+				ResultFEN:    record[3],
+				SequenceFENs: strings.Split(record[4], ","),
+			})
+
+		case 4:
 			openings = append(openings, opening{
 				Moves:        record[0],
 				Name:         record[1],
 				ResultFEN:    record[2],
 				SequenceFENs: strings.Split(record[3], ","),
 			})
-
-			continue
-		}
-
-		if len(record) == 2 {
+		case 2:
 			openings = append(openings, opening{
 				Moves: record[0],
 				Name:  record[1],
 			})
-
-			continue
 		}
 	}
 
@@ -100,13 +105,13 @@ func writeOpenings(ops []opening) error {
 	defer writer.Flush()
 
 	// write header row
-	if err := writer.Write([]string{"Moves", "Name", "ResultFEN", "SequenceFENs"}); err != nil {
+	if err := writer.Write([]string{"Moves", "ECO", "Name", "ResultFEN", "SequenceFENs"}); err != nil {
 		return fmt.Errorf("error writing header row: %w", err)
 	}
 
 	// write each opening
 	for _, op := range ops {
-		err := writer.Write([]string{op.Moves, op.Name, op.ResultFEN, strings.Join(op.SequenceFENs, ",")})
+		err := writer.Write([]string{op.Moves, op.ECO, op.Name, op.ResultFEN, strings.Join(op.SequenceFENs, ",")})
 		if err != nil {
 			return fmt.Errorf("error writing openings file: %w", err)
 		}

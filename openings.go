@@ -17,6 +17,8 @@ const (
 // Opening represents a single chess opening, including its name, move sequence,
 // and the FEN strings for each position in the sequence.
 type Opening struct {
+	// ECO is the Encyclopedia of Chess Openings code (e.g., "A00").
+	ECO string
 	// Moves is a slice of algebraic notation strings representing the move sequence.
 	Moves []string
 	// Name is the common name of the opening (e.g., "Ruy Lopez").
@@ -25,6 +27,8 @@ type Opening struct {
 	ResultFEN string
 	// SequenceFENs is a slice of FEN strings for each board state in the opening sequence.
 	SequenceFENs []string
+	// SequenceMoves is a string representation of each turn
+	SequenceMoves string
 }
 
 // openingsLibrary holds a collection of chess openings loaded from a data source.
@@ -67,28 +71,30 @@ func (ol *openingsLibrary) readOpenings(pth string) error {
 			continue
 		}
 
-		// only read valid rows
-		if len(record) == 4 {
-			mvs := []string{}
-			for i, trn := range strings.Fields(record[0]) {
-				// the turn number
-				if i%3 == 0 {
-					continue
-				}
-
-				mvs = append(mvs, trn)
-			}
-
-			// create opening from CSV data
-			ops = append(ops, Opening{
-				Moves:        mvs,
-				Name:         record[1],
-				ResultFEN:    record[2],
-				SequenceFENs: strings.Split(record[3], ","),
-			})
-
+		// if we're missing fields, move on
+		if len(record) != 5 {
 			continue
 		}
+
+		mvs := []string{}
+		for i, trn := range strings.Fields(record[0]) {
+			// the turn number
+			if i%3 == 0 {
+				continue
+			}
+
+			mvs = append(mvs, trn)
+		}
+
+		// create opening from CSV data
+		ops = append(ops, Opening{
+			Moves:         mvs,
+			ECO:           record[1],
+			Name:          record[2],
+			ResultFEN:     record[3],
+			SequenceFENs:  strings.Split(record[4], ","),
+			SequenceMoves: record[0],
+		})
 	}
 
 	// update library with processed openings
@@ -98,9 +104,32 @@ func (ol *openingsLibrary) readOpenings(pth string) error {
 	return nil
 }
 
-// FindOpening searches the library for an opening that results in the given FEN string.
+// All returns an iterator
+func (ol *openingsLibrary) All() func(yld func(Opening) bool) {
+	return func(yld func(Opening) bool) {
+		for _, op := range ol.ops {
+			if !yld(op) {
+				break
+			}
+		}
+	}
+}
+
+// FindOpeningsByECO searches the library for an opening that is classified by the
+// provided ECO string. It returns an opening if found, and a boolean indicating success.
+func (ol *openingsLibrary) FindOpeningByECO(eco string) (*Opening, bool) {
+	for _, op := range ol.ops {
+		if op.ECO == eco {
+			return &op, true
+		}
+	}
+
+	return nil, false
+}
+
+// FindOpeningByFEN searches the library for an opening that results in the given FEN string.
 // It returns the opening if found, and a boolean indicating success.
-func (ol *openingsLibrary) FindOpening(fen string) (*Opening, bool) {
+func (ol *openingsLibrary) FindOpeningByFEN(fen string) (*Opening, bool) {
 	for _, op := range ol.ops {
 		if op.ResultFEN == fen {
 			return &op, true
@@ -110,10 +139,10 @@ func (ol *openingsLibrary) FindOpening(fen string) (*Opening, bool) {
 	return nil, false
 }
 
-// FindVariations searches for all known opening sequences that include the given FEN.
+// FindVariationsByFEN searches for all known opening sequences that include the given FEN.
 // It returns a slice of unique subsequent FENs from all matching sequences,
 // representing possible continuations. The boolean indicates if any variations were found.
-func (ol *openingsLibrary) FindVariations(fen string) ([]string, bool) {
+func (ol *openingsLibrary) FindVariationsByFEN(fen string) ([]string, bool) {
 	mtchs := []string{}
 
 	for _, op := range ol.ops {

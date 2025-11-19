@@ -10,6 +10,7 @@ It parses and validates moves, tracks rich game state, and exposes an event-driv
 - **Undo-friendly move execution** – every applied move returns an undo handle and updates castling rights, en passant targets, and move counters.
 - **FEN integration** – load games from Forsyth–Edwards Notation, emit FEN snapshots after every move, or explore alternate continuations.
 - **Event-driven hooks** – subscribe to move, capture, castle, promotion, undo, check, and checkmate notifications from multiple abstraction layers.
+- **Opening library** - iterable and searchable library of openings, with ECO and FEN
 
 ## Table of Contents
 
@@ -64,6 +65,40 @@ func main() {
  }
 }
 ```
+
+## Using the Opening Library
+
+The package ships with a curated ECO-backed opening database (`data/openings.csv`). Load it once and iterate or search:
+
+```go
+ol, err := chess.CreateOpeningsLibrary()
+if err != nil {
+ log.Fatal(err)
+}
+
+// Iterate all openings (10k+ entries) lazily
+iter := ol.All()
+iter(func(op chess.Opening) bool {
+ fmt.Printf("%s %s -> %s\n", op.ECO, op.Name, op.ResultFEN)
+ return true
+})
+
+// Look up by ECO or by final FEN
+if op, ok := ol.FindOpeningByECO("C60"); ok {
+ fmt.Println("Found:", op.Name)
+}
+
+if op, ok := ol.FindOpeningByFEN("r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"); ok {
+ fmt.Println("Reached via:", op.SequenceMoves)
+}
+
+// Explore continuations after a position appears anywhere in the sequence.
+if next, ok := ol.FindVariationsByFEN("r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"); ok {
+ fmt.Println("Possible continuations:", next)
+}
+```
+
+Each `Opening` exposes the ECO code, friendly name, raw move text (`SequenceMoves`), and every intermediate FEN (`SequenceFENs`), making it easy to link engine positions back to common theory.
 
 ## Inspecting Valid Moves
 
