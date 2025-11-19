@@ -338,7 +338,10 @@ func (b *Board) Move(src, dst *Square, sim bool, not ...string) (*moveResult, er
 	dst.Piece = src.Piece
 	src.Piece = nil
 
-	mv.Castle = mv.Piece.Type == pieceKing && mv.prevMoveCount == 0 && (dst.File == 'g' || dst.File == 'c')
+	mv.Castle = mv.Piece.Type == pieceKing &&
+		mv.prevMoveCount == 0 &&
+		mv.PrevSquare.File == 'e' &&
+		(dst.File == 'g' || dst.File == 'c')
 	mv.EnPassant = mv.Piece.Type == piecePawn && mv.CapturedPiece == nil && dst.File != mv.PrevSquare.File
 
 	if mv.EnPassant {
@@ -358,7 +361,7 @@ func (b *Board) Move(src, dst *Square, sim bool, not ...string) (*moveResult, er
 			rd = b.GetSquare('f', dst.Rank)
 		}
 
-		if rs == nil || rs.Piece == nil {
+		if rs == nil || rs.Piece == nil || rs.Piece.Type != pieceRook {
 			mv.Castle = false
 		}
 
