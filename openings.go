@@ -3,16 +3,18 @@
 package chess
 
 import (
+	"bytes"
+	_ "embed"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
 )
 
-const (
-	openingsCSV = "./data/openings.csv"
-)
+//go:embed data/openings.csv
+var embeddedOpeningsCSV []byte
 
 // Opening represents a single chess opening, including its name, move sequence,
 // and the FEN strings for each position in the sequence.
@@ -41,8 +43,9 @@ type openingsLibrary struct {
 func CreateOpeningsLibrary() (*openingsLibrary, error) {
 	ol := &openingsLibrary{}
 
-	// read in openings from CSV file
-	if err := ol.readOpenings(openingsCSV); err != nil {
+	// load openings from the embedded CSV so downstream consumers do not have
+	// to keep the data file on disk.
+	if err := ol.loadOpenings(bytes.NewReader(embeddedOpeningsCSV)); err != nil {
 		return nil, fmt.Errorf("error reading openings: %w", err)
 	}
 
@@ -51,14 +54,19 @@ func CreateOpeningsLibrary() (*openingsLibrary, error) {
 
 // readOpenings reads and parses opening data from a CSV file at the given path.
 func (ol *openingsLibrary) readOpenings(pth string) error {
-	// read in openings from CSV file
 	f, err := os.Open(pth)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	reader := csv.NewReader(f)
+	return ol.loadOpenings(f)
+}
+
+// loadOpenings converts CSV data from the provided reader into the in-memory
+// openings library representation.
+func (ol *openingsLibrary) loadOpenings(r io.Reader) error {
+	reader := csv.NewReader(r)
 	records, err := reader.ReadAll()
 	if err != nil {
 		return err
